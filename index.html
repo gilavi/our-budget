@@ -46,7 +46,10 @@ svg{display:block}
 /* ---------- dashboard ---------- */
 .dash{margin-bottom:6px}
 .hero{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 18px 16px;margin-bottom:12px}
+.hero .hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .hero .hlabel{font-size:13px;color:var(--muted)}
+.hcorrect{border:1px solid var(--line);background:var(--panel);color:var(--accent);font-weight:600;font-size:12px;border-radius:9px;padding:4px 11px;flex:none}
+.hcorrect:active{transform:translateY(1px)}
 .hero .hamt{font-size:38px;font-weight:700;letter-spacing:-.6px;line-height:1.04;margin-top:2px}
 .hero .hamt.neg{color:var(--out)}
 .hero .hfc{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--muted);margin-top:7px}
@@ -135,6 +138,30 @@ svg{display:block}
 .qa{margin-top:5px;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:7px;font-size:11px;font-weight:600;padding:2px 8px}
 .qa:hover{color:var(--in);border-color:var(--in)}
 .faint{color:var(--faint)}
+
+/* ---------- cashflow chart ---------- */
+.cf{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 12px 8px;margin:2px 2px 14px}
+.cf-head{display:flex;align-items:center;gap:8px;margin:0 4px 2px}
+.cf-head .t{font-size:14px;font-weight:700;flex:1}
+.cf-toggle{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;display:flex;align-items:center;gap:4px}
+.cf-wrap{position:relative}
+.cf-hint{font-size:11px;color:var(--faint);margin:5px 4px 0}
+.cf-chart{width:100%;height:auto;display:block;touch-action:pan-y;overflow:visible}
+.cf-area{fill:color-mix(in srgb,var(--accent) 13%,transparent)}
+.cf-line{fill:none;stroke:var(--accent);stroke-width:2}
+.cf-past{fill:var(--panel-2);opacity:.7}
+.cf-negzone{fill:color-mix(in srgb,var(--out) 9%,transparent)}
+.cf-zero{stroke:var(--faint);stroke-width:1;stroke-dasharray:3 3}
+.cf-today{stroke:var(--accent);stroke-width:1.5}
+.cf-todaylab{fill:var(--accent);font-size:10px;font-weight:600}
+.cf-goal{stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3;opacity:.45}
+.cf-goaldot{fill:var(--accent);stroke:var(--panel);stroke-width:1.5}
+.cf-glabel{fill:var(--accent-deep);font-size:10px;font-weight:600}
+.cf-axis{fill:var(--faint);font-size:10px}
+.cf-cursor line{stroke:var(--ink);stroke-width:1;opacity:.3}
+.cf-cursor circle{fill:var(--accent);stroke:var(--panel);stroke-width:2}
+.cf-tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:11.5px;font-weight:600;padding:5px 9px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-135%);z-index:5}
+.cf-tip .d{opacity:.75;font-weight:500}
 
 /* ---------- generic lists (loans / cards / goals / recurring) ---------- */
 .list{display:grid;gap:12px}
@@ -273,6 +300,7 @@ const MONF= ['January','February','March','April','May','June','July','August','
 const WK  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const fmtMonYear = d => `${MONF[d.getMonth()]} ${d.getFullYear()}`;
 const fmtMonShort = d => `${MON[d.getMonth()]} ${d.getFullYear()}`;
+const fmtDateShort = s => { const d = parseYmd(s); return `${d.getDate()} ${MON[d.getMonth()]}`; };
 
 function fmtMoney(n, signed){
   if(n==null||n==='') return '—';
@@ -306,7 +334,8 @@ const PALETTE = ['#15803d','#0e7490','#db2777','#ea580c','#7c3aed','#2563eb','#d
    STATE
    ============================================================================ */
 const LS_KEY = 'ourbudget.v1';
-let state, ui = { tab:'timeline', range:6, showPast:false, search:'' };
+let state, ui = { tab:'timeline', range:6, showPast:false, search:'', chartOpen:true };
+let lastBuilt = null, chartPts = [], chartDim = {W:700,H:200};
 
 function defaultState(){
   const cats = [
@@ -517,6 +546,7 @@ function loanInfo(loan){
 function render(){
   $('#brand-sub').textContent = state.settings.people.filter(Boolean).join(' & ');
   const built = buildItems();
+  lastBuilt = built;
   renderDashboard(built);
   renderNav();
   const v = $('#view');
@@ -567,12 +597,12 @@ function renderDashboard(built){
   }
 
   const needsBalance = num(state.settings.anchorBalance)===0;
-  const banner = needsBalance ? `<div class="banner" data-act="open-settings"><span class="bi">${icon('alert',20)}</span><div class="bt"><div class="bh">Set your starting balance</div><div class="bs">The forecast starts from ₾0 until you enter your current bank balance.</div></div><span class="bgo">Set${icon('chev',15)}</span></div>` : '';
+  const banner = needsBalance ? `<div class="banner" data-act="correct-balance"><span class="bi">${icon('alert',20)}</span><div class="bt"><div class="bh">Set your starting balance</div><div class="bs">The forecast starts from ₾0 until you enter your current bank balance.</div></div><span class="bgo">Set${icon('chev',15)}</span></div>` : '';
 
   $('#dash').innerHTML = `
     ${banner}
     <div class="hero">
-      <div class="hlabel">Balance today</div>
+      <div class="hrow"><div class="hlabel">Balance today</div><button class="hcorrect" data-act="correct-balance">Correct</button></div>
       <div class="hamt ${ca.bal<0?'neg':''}">${fmtMoney(ca.bal)}</div>
       <div class="hfc">${arrow}<span>${fmtMoney(eom)} forecast by end of ${MONF[today().getMonth()]}</span></div>
       ${ca.missing?`<div class="hnote">${ca.missing} past item${ca.missing>1?'s':''} need${ca.missing>1?'':'s'} actuals</div>`:''}
@@ -592,6 +622,107 @@ function renderNav(){
     `<button data-tab="${id}" class="${ui.tab===id?'active':''}">${icon(id,18)}<span>${label}</span></button>`).join('');
 }
 
+/* ---------- CASHFLOW CHART ---------------------------------------------- */
+// balance-over-time points across [fromYmd, toYmd] (end-of-day balance per date)
+function cashflowSeries(items, fromYmd, toYmd){
+  let startBal = num(state.settings.anchorBalance);
+  const byDate = new Map();
+  for(const it of items){
+    if(it.date < fromYmd){ startBal = it.runProjected; continue; }
+    if(it.date > toYmd) break;
+    byDate.set(it.date, it.runProjected);    // chronological → last of a day wins
+  }
+  const pts = [{date:fromYmd, bal:startBal}];
+  for(const [date,bal] of byDate){ if(date===fromYmd) pts[0].bal = bal; else pts.push({date,bal}); }
+  const lastP = pts[pts.length-1];
+  if(lastP.date !== toYmd) pts.push({date:toYmd, bal:lastP.bal});
+  return pts;
+}
+
+function chartCard(){
+  const open = ui.chartOpen!==false;
+  return `<div class="cf">
+    <div class="cf-head"><span class="t">Cashflow forecast</span>
+      <button class="cf-toggle" data-act="toggle-chart">${open?'Hide':'Show'}${icon('chev',14)}</button></div>
+    ${open?`<div class="cf-wrap" id="cf-wrap"></div>
+      <div class="cf-hint">Line = forecast balance · vertical line = today · dashed = goal targets. Tap or hover to read any date.</div>`:''}
+  </div>`;
+}
+
+function drawCashflow(){
+  const wrap = document.getElementById('cf-wrap');
+  if(!wrap || !lastBuilt) return;
+  const W = Math.max(260, Math.round(wrap.clientWidth));
+  const H = W<430 ? 184 : 210;
+  const padL=10, padR=12, padT=16, padB=22;
+  const fromD = startOfMonth(today());
+  const monthsAhead = ui.range==='all' ? 24 : ui.range;
+  const toD = endOfMonth(addMonths(today(), monthsAhead-1));
+  const fromYmd = ymd(fromD), toYmd = ymd(toD);
+  const items = lastBuilt.items;
+  const pts = cashflowSeries(items, fromYmd, toYmd);
+  const fromTs = parseYmd(fromYmd).getTime();
+  const toTs = Math.max(parseYmd(toYmd).getTime(), fromTs+86400000);
+
+  const goals = state.goals.map(g=>({name:g.name, target:num(g.targetAmount), r:goalDate(items,num(g.targetAmount))})).filter(g=>g.target>0);
+  let minBal=0, maxBal=0;
+  for(const p of pts){ if(p.bal<minBal) minBal=p.bal; if(p.bal>maxBal) maxBal=p.bal; }
+  let goalMax=0; for(const g of goals) goalMax=Math.max(goalMax,g.target);
+  const capMax = maxBal>0 ? maxBal*2.2 : (goalMax||1000);
+  let yMin = Math.min(0, minBal), yMax = Math.max(maxBal, Math.min(goalMax, capMax));
+  if(yMax<=yMin) yMax = yMin+1000;
+  const span = yMax-yMin;
+  yMax += span*0.14; if(yMin<0) yMin -= span*0.06;
+
+  const plotW=W-padL-padR, plotH=H-padT-padB, bottom=H-padB;
+  const X = ts => padL + (ts-fromTs)/(toTs-fromTs)*plotW;
+  const Y = v => padT + (yMax-v)/(yMax-yMin)*plotH;
+  const xy = pts.map(p=>({x:+X(parseYmd(p.date).getTime()).toFixed(1), y:+Y(p.bal).toFixed(1), date:p.date, bal:p.bal}));
+  chartPts = xy; chartDim = {W,H};
+
+  const line = xy.map((p,i)=>(i?'L':'M')+p.x+' '+p.y).join(' ');
+  const area = `${line} L ${xy[xy.length-1].x} ${bottom} L ${xy[0].x} ${bottom} Z`;
+  const todayX = X(Math.max(fromTs, Math.min(toTs, today().getTime())));
+  const zeroY = Y(0);
+
+  let ticks='';
+  const stepMo = monthsAhead>12?3:(monthsAhead>6?2:1);
+  let c = new Date(fromD.getFullYear(), fromD.getMonth(), 1), guard=0;
+  while(c<=toD && guard++<60){
+    const tx=X(c.getTime());
+    if(tx>=padL-1 && tx<=W-padR+1) ticks+=`<text class="cf-axis" x="${tx.toFixed(1)}" y="${H-6}" text-anchor="middle">${MON[c.getMonth()]}</text>`;
+    c = addMonths(c, stepMo);
+  }
+  let ylabs = `<text class="cf-axis" x="${W-padR}" y="${padT-5}" text-anchor="end">${fmtMoney(yMax)}</text>`;
+  if(yMin<0) ylabs += `<text class="cf-axis" x="${padL}" y="${(zeroY-3).toFixed(1)}">${CUR}0</text>`;
+
+  let goalEls='';
+  for(const g of goals){
+    if(g.target>yMax || g.target<yMin) continue;
+    const gy = Y(g.target).toFixed(1);
+    goalEls += `<line class="cf-goal" x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}"/>`;
+    goalEls += `<text class="cf-glabel" x="${W-padR}" y="${(+gy-3).toFixed(1)}" text-anchor="end">${esc(g.name)} · ${fmtMoney(g.target)}</text>`;
+    if(g.r.date){ const gx=X(parseYmd(ymd(g.r.date)).getTime()); if(gx>=padL && gx<=W-padR) goalEls += `<circle class="cf-goaldot" cx="${gx.toFixed(1)}" cy="${gy}" r="3.6"/>`; }
+  }
+
+  wrap.innerHTML = `<svg class="cf-chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    ${yMin<0?`<rect class="cf-negzone" x="${padL}" y="${zeroY.toFixed(1)}" width="${plotW}" height="${(bottom-zeroY).toFixed(1)}"/>`:''}
+    ${todayX>padL?`<rect class="cf-past" x="${padL}" y="${padT}" width="${(todayX-padL).toFixed(1)}" height="${plotH}"/>`:''}
+    <path class="cf-area" d="${area}"/>
+    <path class="cf-line" d="${line}"/>
+    ${yMin<0?`<line class="cf-zero" x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}"/>`:''}
+    <line class="cf-today" x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${bottom}"/>
+    <text class="cf-todaylab" x="${todayX.toFixed(1)}" y="${padT-5}" text-anchor="middle">today</text>
+    ${goalEls}${ticks}${ylabs}
+    <g class="cf-cursor" style="display:none"><line y1="${padT}" y2="${bottom}"/><circle r="4"/></g>
+  </svg><div class="cf-tip" style="display:none"></div>`;
+}
+
+function hideCursor(){
+  document.querySelectorAll('.cf-cursor').forEach(c=>c.style.display='none');
+  document.querySelectorAll('.cf-tip').forEach(t=>t.style.display='none');
+}
+
 /* ---------- TIMELINE ----------------------------------------------------- */
 function tagHtml(catId){
   const c = catById(catId);
@@ -603,6 +734,7 @@ function catDot(catId){
 }
 function renderTimeline(v, built){
   const { items } = built;
+  lastBuilt = built;
   const t = todayYmd();
   const from = ui.showPast ? '0000-00-00' : ymd(startOfMonth(today()));
   const to   = ui.range==='all' ? '9999-99-99' : ymd(endOfMonth(addMonths(today(), ui.range-1)));
@@ -632,6 +764,7 @@ function renderTimeline(v, built){
   if(!todayShown && !q){ rows += todayDivider(built); }
 
   v.innerHTML = `
+    ${chartCard()}
     <div class="tlbar">
       <div class="chips">
         ${[['3','3m'],['6','6m'],['12','1y'],['all','All']].map(([r,l])=>
@@ -642,6 +775,7 @@ function renderTimeline(v, built){
     </div>
     ${view.length ? `<div class="tl"><div class="tl-head"><span class="hsp"></span><span class="hmain"></span><span class="hcol amt">Amount</span><span class="hcol bal">Balance</span></div>${rows}</div>`
       : `<div class="empty"><div class="big">🗓️</div><h3>Nothing here yet</h3><p>No entries in this range.</p><button class="btn primary" data-act="add-entry">Add an entry</button></div>`}`;
+  if(ui.chartOpen!==false) drawCashflow();
 }
 function todayDivider(built){
   const ca = currentActual(built.items);
@@ -801,6 +935,21 @@ function catOptions(sel){ return state.categories.map(c=>`<option value="${c.id}
 function personOptions(sel){
   return `<option value="" ${!sel?'selected':''}>— none —</option>` +
     state.settings.people.filter(Boolean).map(p=>`<option value="${esc(p)}" ${p===sel?'selected':''}>${esc(p)}</option>`).join('');
+}
+
+/* ----- correct current balance ------------------------------------------ */
+function correctBalanceForm(){
+  const ca = currentActual(buildItems().items);
+  openModal(`
+    <h3>Correct current balance</h3>
+    <div class="hint">Enter what your bank actually shows now. The forecast continues from this point — earlier entries become history.</div>
+    <form data-kind="correct">
+      <div class="fld row2">
+        <div><label>Balance now (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="bal" value="${num(state.settings.anchorBalance)||''}" placeholder="${fmtMoney(ca.bal)}" autocomplete="off"></div>
+        <div><label>As of</label><input type="date" name="date" value="${todayYmd()}"></div>
+      </div>
+      <div class="modal-actions"><button type="submit" class="btn primary">Save</button></div>
+    </form>`);
 }
 
 /* ----- timeline filters sheet ------------------------------------------- */
@@ -1077,6 +1226,11 @@ function handleSubmit(form){
     else state.goals.push(Object.assign({id:uid('g')}, fields));
   }
 
+  else if(kind==='correct'){
+    state.settings.anchorBalance = num(data.bal);
+    state.settings.anchorDate = data.date || todayYmd();
+  }
+
   else if(kind==='settings'){
     state.settings.anchorBalance = num(data.anchorBalance);
     state.settings.anchorDate = data.anchorDate||state.settings.anchorDate;
@@ -1146,8 +1300,10 @@ document.addEventListener('click', e=>{
     case 'add-goal': goalForm(null); break;
     case 'open-settings': settingsForm(); break;
     case 'back-settings': settingsForm(); break;
+    case 'correct-balance': correctBalanceForm(); break;
     case 'open-filters': filterSheet(); break;
     case 'close-modal': closeModal(); break;
+    case 'toggle-chart': ui.chartOpen = !(ui.chartOpen!==false); saveUi(); render(); break;
     case 'add-cat': categoryForm(null); break;
     case 'edit-cat': categoryForm(state.categories.find(x=>x.id===t.dataset.id)); break;
     case 'del-cat': delCategory(t.dataset.id); break;
@@ -1175,6 +1331,28 @@ document.addEventListener('change', e=>{
   if(e.target.dataset.act==='toggle-past'){ ui.showPast=e.target.checked; saveUi(); render(); }
   if(e.target.dataset.act==='toggle-detail'){ state.settings.detailedBalances=e.target.checked; save(); render(); }
 });
+
+// cashflow chart hover (delegated so it survives re-renders)
+document.addEventListener('pointermove', e=>{
+  const svg = e.target.closest && e.target.closest('.cf-chart');
+  if(!svg || !chartPts.length){ hideCursor(); return; }
+  const rect = svg.getBoundingClientRect();
+  const sx = (e.clientX-rect.left) * (chartDim.W/rect.width);
+  let best=chartPts[0], bd=1e9;
+  for(const p of chartPts){ const dd=Math.abs(p.x-sx); if(dd<bd){ bd=dd; best=p; } }
+  const cur = svg.querySelector('.cf-cursor');
+  cur.style.display='';
+  const ln=cur.querySelector('line'), ci=cur.querySelector('circle');
+  ln.setAttribute('x1',best.x); ln.setAttribute('x2',best.x);
+  ci.setAttribute('cx',best.x); ci.setAttribute('cy',best.y);
+  const tip = svg.parentNode.querySelector('.cf-tip');
+  tip.style.display=''; tip.innerHTML = `${fmtMoney(best.bal)}<span class="d"> · ${fmtDateShort(best.date)}</span>`;
+  tip.style.left = (best.x*rect.width/chartDim.W)+'px';
+  tip.style.top  = (best.y*rect.height/chartDim.H)+'px';
+});
+document.addEventListener('pointerdown', e=>{ if(!(e.target.closest && e.target.closest('.cf-chart'))) hideCursor(); });
+let cfResizeTimer;
+window.addEventListener('resize', ()=>{ clearTimeout(cfResizeTimer); cfResizeTimer=setTimeout(()=>{ if(ui.tab==='timeline' && ui.chartOpen!==false) drawCashflow(); }, 150); });
 
 function quickActual(id){
   const it = buildItems().items.find(x=>x.id===id); if(!it) return;
