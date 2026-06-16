@@ -6,12 +6,14 @@ in your browser.
 
 ## Open it
 
-- **On a computer:** double-click `index.html` (it opens in your browser).
-  Chrome is the most reliable for opening a local file.
-- **On your phone / to share between devices:** the easiest way is to host the
-  one file somewhere both of you can reach (any static host works — e.g. drop
-  `index.html` onto Netlify, or use GitHub Pages). Then add it to your home
-  screen. Ask me and I’ll set this up for you.
+- **Live (phone & computer):** **https://gilavi.github.io/our-budget/** — open it
+  and add it to your home screen for an app-like icon.
+- **Offline / local:** double-click `index.html` (Chrome is the most reliable for
+  opening a local file).
+
+> Note: data is saved per device/browser (see “Your data & backups”). Opening the
+> live link on a new device starts fresh there — use Export/Import to copy a
+> snapshot across devices.
 
 ## First-time setup (5 minutes)
 
