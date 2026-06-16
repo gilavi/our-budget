@@ -227,6 +227,15 @@ svg{display:block}
 .cat-manage{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-2)}
 .cat-manage .tag{flex:1}
 .section-title{font-size:12.5px;font-weight:700;color:var(--muted);margin:20px 2px 10px}
+.imp-list{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:12px;margin-bottom:13px}
+.imp-row{display:flex;align-items:center;gap:11px;padding:9px 12px}
+.imp-row + .imp-row{border-top:1px solid var(--line-2)}
+.imp-d{width:54px;flex:none;font-size:12px;color:var(--muted)}
+.imp-desc{flex:1;min-width:0}
+.imp-main{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imp-sub{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);margin-top:1px}
+.imp-amt{flex:none;font-weight:700;font-size:13.5px;white-space:nowrap}
+.imp-amt.in{color:var(--in)} .imp-amt.out{color:var(--out)}
 
 /* ---------- responsive ---------- */
 @media(max-width:760px){
@@ -370,6 +379,7 @@ function defaultState(){
        startDate:anchor, endDate:null, active:true},
     ],
     overrides:{},               // per-occurrence edits  key = `${ruleId}::${YYYY-MM-DD}`
+    importSigs:{},              // bank-import dedupe: signature -> times imported
     loans:[
       {id:'l-car', name:'Loan (example)', originalAmount:null, currentBalance:null,
        monthlyPayment:700, paymentDay:30, interestRate:0,
@@ -393,6 +403,7 @@ function load(){
     for(const k of ['categories','entries','recurring','loans','cards','goals'])
       if(!Array.isArray(state[k])) state[k] = d[k];
     if(typeof state.overrides!=='object'||!state.overrides) state.overrides = {};
+    if(typeof state.importSigs!=='object'||!state.importSigs) state.importSigs = {};
   }catch(e){
     console.error('Load failed, starting fresh', e);
     state = defaultState();
@@ -1173,6 +1184,9 @@ function settingsForm(){
     <div class="section-title">Categories</div>
     ${cats}
     <button type="button" class="btn sm" style="margin-top:10px" data-act="add-cat">＋ Add category</button>
+    <div class="section-title">Bank import</div>
+    <div class="hint">Import a Bank of Georgia <b>.xlsx</b> statement — it auto-categorises (via MCC), fills in actuals on matching planned items, and skips anything already imported. You preview before anything changes.</div>
+    <div class="modal-actions"><button type="button" class="btn" data-act="import-statement">Import statement (.xlsx)</button></div>
     <div class="section-title">Backup &amp; data</div>
     <div class="hint">Data is stored only in this browser. Export to back up or move to your phone.</div>
     <div class="modal-actions" style="flex-wrap:wrap">
@@ -1405,6 +1419,8 @@ document.addEventListener('click', e=>{
 
     case 'export': doExport(); break;
     case 'import': doImport(); break;
+    case 'import-statement': doImportStatement(); break;
+    case 'apply-import': applyImport(); break;
     case 'clear-data': if(confirm('Erase ALL data and start over? This cannot be undone.')){ localStorage.removeItem(LS_KEY); load(); closeModal(); render(); } break;
   }
 });
@@ -1473,6 +1489,168 @@ function delCategory(id){
   state.entries.forEach(e=>{ if(e.category===id) e.category=fallback; });
   state.recurring.forEach(r=>{ if(r.category===id) r.category=fallback; });
   save(); settingsForm(); render();
+}
+
+/* ============================================================================
+   BANK STATEMENT IMPORT (.xlsx)  — parse · categorise · dedupe · reconcile
+   ============================================================================ */
+let pendingImport = null;
+
+function loadXLSX(){
+  return new Promise((res,rej)=>{
+    if(window.XLSX) return res(window.XLSX);
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload=()=>res(window.XLSX);
+    s.onerror=()=>rej(new Error('Could not load the spreadsheet reader — you need an internet connection for import.'));
+    document.head.appendChild(s);
+  });
+}
+function normDate(v){
+  if(v instanceof Date && !isNaN(v)) return ymd(v);
+  if(typeof v==='number' && v>20000 && v<100000){ const d=new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000); return ymd(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())); }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/); if(m) return `${m[3]}-${pad2(+m[2])}-${pad2(+m[1])}`;
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return null;
+}
+const validCat = id => state.categories.some(c=>c.id===id) ? id : (state.categories[0]?state.categories[0].id:'c-other');
+function categorizeTxn(t){
+  if(t.amount>0) return {direction:'in', category:validCat('c-income')};
+  const desc=t.description||'';
+  const mcc=(desc.match(/MCC:?\s*(\d{3,4})/)||[])[1];
+  const M={'5541':'c-gas','5542':'c-gas','5172':'c-gas','5983':'c-gas',
+           '5812':'c-fun','5813':'c-fun','5814':'c-fun','7832':'c-fun','7922':'c-fun','7994':'c-fun','7996':'c-fun','5921':'c-fun',
+           '5977':'c-beauty','7230':'c-beauty','7298':'c-beauty'};
+  let cat='c-other';
+  if(mcc && M[mcc]) cat=M[mcc];
+  if(/საკრედიტო ბარათ|credit card/i.test(desc)) cat='c-card';
+  return {direction:'out', category:validCat(cat)};
+}
+
+async function parseStatement(file){
+  const XLSX = await loadXLSX();
+  const wb = XLSX.read(await file.arrayBuffer(), {type:'array', cellDates:true});
+  let best=null;
+  for(const name of wb.SheetNames){
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:''});
+    const hi = rows.findIndex(r=> Array.isArray(r)
+      && r.some(c=>/^(gel|amount|თანხა)$/i.test(String(c).trim()))
+      && r.some(c=>/(date|თარიღ)/i.test(String(c).trim())) );
+    if(hi>=0){ best={rows, hi}; break; }
+  }
+  if(!best) throw new Error('Could not find a transactions table (need Date and amount columns).');
+  const header = best.rows[best.hi].map(c=>String(c).trim());
+  const dateCol = header.findIndex(c=>/(date|თარიღ)/i.test(c));
+  const descCol = header.findIndex(c=>/(desc|დანიშნულება|details|purpose|narrative)/i.test(c));
+  let amtCol = header.findIndex(c=>/^gel$/i.test(c)); if(amtCol<0) amtCol = header.findIndex(c=>/(amount|თანხა)/i.test(c));
+  const txns=[];
+  for(let i=best.hi+1;i<best.rows.length;i++){
+    const r=best.rows[i]; if(!Array.isArray(r)) continue;
+    const date=normDate(r[dateCol]); const amt=parseFloat(r[amtCol]);
+    if(!date || isNaN(amt) || amt===0) continue;
+    txns.push({date, amount:amt, description:String(r[descCol]||'').trim()});
+  }
+  // closing balance from any header sheet
+  let closingBalance=null, closingDate=null;
+  for(const name of wb.SheetNames){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:''});
+    for(const r of rows){ if(!Array.isArray(r)) continue;
+      const line=r.map(c=>String(c)).join(' ');
+      if(closingBalance==null && /(საბოლოო ნაშთ|closing balance|ending balance)/i.test(line))
+        for(const c of r){ const m=String(c).match(/([\d,]+\.\d{2})\s*GEL/i); if(m){ closingBalance=parseFloat(m[1].replace(/,/g,'')); break; } }
+      if(closingDate==null && /(საბოლოო თარიღ|end date|to date)/i.test(line))
+        for(const c of r){ const d=normDate(c); if(d){ closingDate=d; break; } }
+    }
+    if(closingBalance!=null) break;
+  }
+  return {txns, closingBalance, closingDate};
+}
+
+function impSig(t){ return t.date+'|'+t.amount.toFixed(2)+'|'+(t.description||'').slice(0,48); }
+function buildImportPlan(txns){
+  const anchorYmd = state.settings.anchorDate;
+  const items = buildItems().items;
+  const used = new Set();
+  const seen = {};
+  const plan = [];
+  for(const t of txns){
+    const s=impSig(t);
+    if(t.date < anchorYmd){ plan.push({t, sig:s, action:'old'}); continue; }
+    seen[s]=(seen[s]||0)+1;
+    const already = (state.importSigs[s]||0);
+    if(seen[s] <= already){ plan.push({t, sig:s, action:'skip'}); continue; }
+    const cat = categorizeTxn(t); const amt=Math.abs(t.amount);
+    let match=null;
+    for(const it of items){
+      if(used.has(it.id) || it.hasActual) continue;
+      if(it.direction!==cat.direction) continue;
+      if(Math.abs(num(it.planned)-amt) > 1) continue;
+      if(Math.abs((parseYmd(it.date)-parseYmd(t.date))/86400000) <= 5){ match=it; break; }
+    }
+    if(match){ used.add(match.id); plan.push({t, sig:s, action:'reconcile', target:match.id, targetSrc:match.source, amt, ...cat}); }
+    else plan.push({t, sig:s, action:'add', amt, ...cat});
+  }
+  return plan;
+}
+
+function importPreview(plan, meta){
+  pendingImport = {plan, meta};
+  const news = plan.filter(p=>p.action==='reconcile'||p.action==='add');
+  const rec = news.filter(p=>p.action==='reconcile').length;
+  const add = news.filter(p=>p.action==='add').length;
+  const skip = plan.filter(p=>p.action==='skip').length;
+  const old = plan.filter(p=>p.action==='old').length;
+  const rows = news.slice(0,80).map(p=>{
+    const c=catById(p.category); const sign=p.direction==='in'?'+':'−';
+    return `<div class="imp-row">
+      <div class="imp-d">${fmtDateShort(p.t.date)}</div>
+      <div class="imp-desc"><div class="imp-main">${esc((p.t.description||'—').slice(0,90))}</div><div class="imp-sub"><span class="cdot" style="background:${c.color}"></span>${esc(c.name)} · ${p.action==='reconcile'?'fills a planned item':'new'}</div></div>
+      <div class="imp-amt ${p.direction}">${sign}${fmtMoney(p.amt)}</div>
+    </div>`;
+  }).join('');
+  const more = news.length>80?`<div class="hint" style="text-align:center">…and ${news.length-80} more will be imported</div>`:'';
+  const tip = (meta.closingBalance!=null) ? `<div class="hint">Statement closing balance: ${fmtMoney(meta.closingBalance)}${meta.closingDate?` on ${fmtDateShort(meta.closingDate)}`:''}. If your balance looks off afterwards, tap “Correct” on the dashboard.</div>` : '';
+  openModal(`
+    <h3>Import statement</h3>
+    <div class="hint"><b>${news.length}</b> to import · ${rec} fill planned items · ${add} added · ${skip} already imported${old?` · ${old} before your start date (skipped)`:''}.</div>
+    ${old&&!news.length?`<div class="note">All ${old} transactions are before your start date (${esc(state.settings.anchorDate)}). Move your start date earlier in Settings if you want to load older history.</div>`:''}
+    ${tip}
+    ${news.length?`<div class="imp-list">${rows}</div>${more}`:(old?'':'<div class="hint">Nothing new to import from this file.</div>')}
+    <div class="modal-actions">
+      <button type="button" class="btn" data-act="close-modal">Cancel</button>
+      ${news.length?`<button type="button" class="btn primary" data-act="apply-import">Import ${news.length}</button>`:''}
+    </div>`);
+}
+
+function applyImport(){
+  if(!pendingImport) return;
+  const {plan, meta} = pendingImport;
+  for(const p of plan){
+    if(p.action==='skip' || p.action==='old') continue;
+    state.importSigs[p.sig] = (state.importSigs[p.sig]||0) + 1;
+    if(p.action==='reconcile'){
+      if(p.targetSrc==='recurring'){ const [rid,date]=p.target.split('::'); setOverride(rid,date,{actual:p.amt}); }
+      else { const e=state.entries.find(x=>x.id===p.target); if(e) e.actual=p.amt; }
+    } else {
+      state.entries.push({id:uid('e'), date:p.t.date, direction:p.direction, category:validCat(p.category),
+        description:p.t.description||'Imported', planned:p.amt, actual:p.amt, person:null, importSig:p.sig});
+    }
+  }
+  pendingImport=null; save(); closeModal(); render();
+}
+
+function doImportStatement(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.xlsx,.xls';
+  inp.onchange=async ()=>{ const f=inp.files[0]; if(!f) return;
+    try{
+      openModal(`<h3>Reading statement…</h3><div class="hint">Parsing ${esc(f.name)} — one moment.</div>`);
+      const {txns, closingBalance, closingDate} = await parseStatement(f);
+      if(!txns.length){ openModal(`<h3>Import</h3><div class="hint">No transactions found in that file.</div><div class="modal-actions"><button class="btn primary" data-act="close-modal">OK</button></div>`); return; }
+      importPreview(buildImportPlan(txns), {closingBalance, closingDate});
+    }catch(e){ openModal(`<h3>Import failed</h3><div class="hint">${esc(e.message||'Could not read that file.')}</div><div class="modal-actions"><button class="btn primary" data-act="close-modal">OK</button></div>`); }
+  };
+  inp.click();
 }
 
 /* ---------- export / import --------------------------------------------- */
