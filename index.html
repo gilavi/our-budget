@@ -63,6 +63,12 @@ svg{display:block}
 .goalbar .gt{flex:1;min-width:0}
 .goalbar .gn{font-size:13.5px;font-weight:600;color:var(--accent-deep);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .goalbar .gw{font-size:12.5px;color:var(--accent);margin-top:1px}
+.banner{display:flex;align-items:center;gap:12px;background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 28%,var(--warn-bg));border-radius:14px;padding:12px 15px;margin-bottom:14px;cursor:pointer}
+.banner .bi,.banner .bgo{color:var(--warn);flex:none;display:flex}
+.banner .bt{flex:1;min-width:0}
+.banner .bh{font-size:13.5px;font-weight:700;color:var(--warn)}
+.banner .bs{font-size:12.5px;color:var(--warn);opacity:.9;margin-top:1px}
+.banner .bgo{font-weight:700;font-size:13px;white-space:nowrap;align-items:center;gap:2px}
 
 /* ---------- nav ---------- */
 .nav{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:18px;box-shadow:var(--shadow)}
@@ -94,12 +100,22 @@ svg{display:block}
 .tl-today{display:flex;align-items:center;gap:11px;padding:9px 18px;background:var(--today-bg)}
 .tl-today .pill{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;letter-spacing:.3px}
 .tl-today .line{flex:1;height:1px;background:color-mix(in srgb,var(--accent) 30%,transparent)}
+.tl-today .tlab{font-size:12px;color:var(--accent);font-weight:600}
 .tl-today .bal{font-weight:700;color:var(--accent);font-size:14px}
+
+.tl-head{display:flex;align-items:center;gap:14px;padding:9px 18px 8px;border-bottom:1px solid var(--line-2)}
+.tl-head .hsp{width:42px;flex:none}
+.tl-head .hmain{flex:1}
+.hcol{flex:none;text-align:right;font-size:11px;font-weight:600;color:var(--faint)}
+.r-amt-col,.hcol.amt{width:92px;flex:none;text-align:right}
+.r-bal-col,.hcol.bal{width:98px;flex:none;text-align:right}
 
 .tl-row{display:flex;align-items:center;gap:14px;padding:12px 18px;cursor:pointer}
 .tl-row + .tl-row{border-top:1px solid var(--line-2)}
 .tl-row:hover{background:var(--panel-2)}
 .tl-row.past{opacity:.66}
+.tl-start,.tl-start:hover{cursor:default;background:var(--panel-2)}
+.tl-start .r-desc{color:var(--muted);font-weight:600}
 .r-date{width:42px;flex:none;text-align:center}
 .r-date .dnum{display:block;font-size:17px;font-weight:700;line-height:1.05}
 .r-date .dwk{display:block;font-size:11px;color:var(--faint)}
@@ -108,16 +124,15 @@ svg{display:block}
 .r-sub{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .r-sub .rec{display:inline-flex;color:var(--faint)}
 .cdot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
-.r-right{flex:none;text-align:right;min-width:96px}
-.r-amt{font-size:15px;font-weight:600;white-space:nowrap}
+.r-amt{font-size:14.5px;font-weight:600;white-space:nowrap}
 .r-amt.in{color:var(--in)} .r-amt.out{color:var(--out)}
-.r-bal{font-size:13px;color:var(--muted);margin-top:1px;white-space:nowrap}
+.r-bal{font-size:15px;font-weight:700;white-space:nowrap}
 .r-bal.neg{color:var(--out)}
-.r-baldetail{font-size:11px;color:var(--faint);margin-top:1px;white-space:nowrap}
-.badge{font-size:11px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:5px}
+.r-baldetail{font-size:11px;color:var(--faint);margin-top:2px;white-space:nowrap}
+.badge{font-size:11px;font-weight:600;padding:1px 6px;border-radius:6px;display:inline-block;margin-top:3px}
 .badge.over{background:var(--out-bg);color:var(--out)}
 .badge.under{background:var(--in-bg);color:var(--in)}
-.qa{margin-top:4px;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:7px;font-size:11px;font-weight:600;padding:2px 8px}
+.qa{margin-top:5px;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:7px;font-size:11px;font-weight:600;padding:2px 8px}
 .qa:hover{color:var(--in);border-color:var(--in)}
 .faint{color:var(--faint)}
 
@@ -135,6 +150,7 @@ svg{display:block}
 .progress > i{display:block;height:100%;background:var(--accent);border-radius:6px}
 .progress.warn > i{background:var(--warn)}
 .note{font-size:12.5px;color:var(--warn);background:var(--warn-bg);padding:8px 11px;border-radius:10px;margin-top:11px}
+.goal-answer{font-size:16px;font-weight:700;margin:2px 0 6px}
 
 /* ---------- category dot/tag ---------- */
 .tag{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink);max-width:100%}
@@ -193,7 +209,10 @@ svg{display:block}
   .nav button svg{width:23px;height:23px}
   .nav button.active{background:transparent;color:var(--accent)}
   .hero .hamt{font-size:34px}
-  .r-right{min-width:86px}
+  .tl-row,.tl-head{gap:9px;padding-left:14px;padding-right:14px}
+  .r-date{width:34px}
+  .r-amt-col,.hcol.amt{width:68px}
+  .r-bal-col,.hcol.bal{width:80px}
 }
 @media(max-width:380px){
   .hero .hamt{font-size:30px}
@@ -276,6 +295,7 @@ const ICONS = {
   plus:'<path d="M12 5v14M5 12h14"/>',
   filter:'<path d="M4 7h16M7 12h10M10 17h4"/>',
   chev:'<path d="M9 6l6 6-6 6"/>',
+  alert:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
 };
 const icon = (name,size) => `<svg viewBox="0 0 24 24" width="${size||22}" height="${size||22}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;
 
@@ -546,7 +566,11 @@ function renderDashboard(built){
     </div>`;
   }
 
+  const needsBalance = num(state.settings.anchorBalance)===0;
+  const banner = needsBalance ? `<div class="banner" data-act="open-settings"><span class="bi">${icon('alert',20)}</span><div class="bt"><div class="bh">Set your starting balance</div><div class="bs">The forecast starts from ₾0 until you enter your current bank balance.</div></div><span class="bgo">Set${icon('chev',15)}</span></div>` : '';
+
   $('#dash').innerHTML = `
+    ${banner}
     <div class="hero">
       <div class="hlabel">Balance today</div>
       <div class="hamt ${ca.bal<0?'neg':''}">${fmtMoney(ca.bal)}</div>
@@ -616,12 +640,12 @@ function renderTimeline(v, built){
       <input class="search" placeholder="Search…" value="${esc(ui.search)}" data-act="search">
       <button class="iconbtn-sm" data-act="open-filters" aria-label="Filters" title="Filters">${icon('filter',19)}</button>
     </div>
-    ${view.length ? `<div class="tl">${rows}</div>`
+    ${view.length ? `<div class="tl"><div class="tl-head"><span class="hsp"></span><span class="hmain"></span><span class="hcol amt">Amount</span><span class="hcol bal">Balance</span></div>${rows}</div>`
       : `<div class="empty"><div class="big">🗓️</div><h3>Nothing here yet</h3><p>No entries in this range.</p><button class="btn primary" data-act="add-entry">Add an entry</button></div>`}`;
 }
 function todayDivider(built){
   const ca = currentActual(built.items);
-  return `<div class="tl-today"><span class="pill">Today</span><span class="line"></span><span class="bal">${fmtMoney(ca.bal)}</span></div>`;
+  return `<div class="tl-today"><span class="pill">Today</span><span class="line"></span><span class="tlab">Balance today</span><span class="bal">${fmtMoney(ca.bal)}</span></div>`;
 }
 function rowHtml(it, t){
   const past = it.date < t;
@@ -648,11 +672,8 @@ function rowHtml(it, t){
       <div class="r-desc">${esc(it.description)||'<span class="faint">No description</span>'}</div>
       <div class="r-sub">${catDot(it.category)}${person}${rec}</div>
     </div>
-    <div class="r-right">
-      <div class="r-amt ${dir}">${signedAmt(dir, eff)}${badge}</div>
-      <div class="r-bal${negCls}">${fmtMoney(it.runProjected)}</div>
-      ${detail}${qa}
-    </div>
+    <div class="r-amt-col"><div class="r-amt ${dir}">${signedAmt(dir, eff)}</div>${badge}${qa}</div>
+    <div class="r-bal-col"><div class="r-bal${negCls}">${fmtMoney(it.runProjected)}</div>${detail}</div>
   </div>`;
 }
 
@@ -708,7 +729,9 @@ function renderLoans(v){
       ${info.bal==null?`<div class="note">Add the remaining balance to see payoff date and progress.</div>`:''}
     </div>`;
   }).join('');
-  v.innerHTML = `<div class="vhead"><h2>Loans</h2><button class="btn primary sm" data-act="add-loan">＋ Loan</button></div><div class="list">${list}</div>`;
+  v.innerHTML = `<div class="vhead"><h2>Loans</h2><button class="btn primary sm" data-act="add-loan">＋ Loan</button></div>
+    <div class="hint" style="margin:0 2px 12px">This tab tracks each loan’s balance and payoff date. The monthly payment also shows on your Timeline as a recurring expense.</div>
+    <div class="list">${list}</div>`;
 }
 
 /* ---------- CARDS -------------------------------------------------------- */
@@ -733,7 +756,9 @@ function renderCards(v){
       <div class="hint" style="margin:7px 0 0">${pct}% of limit used</div>
     </div>`;
   }).join('');
-  v.innerHTML = `<div class="vhead"><h2>Credit cards</h2><button class="btn primary sm" data-act="add-card">＋ Card</button></div><div class="list">${list}</div>`;
+  v.innerHTML = `<div class="vhead"><h2>Credit cards</h2><button class="btn primary sm" data-act="add-card">＋ Card</button></div>
+    <div class="hint" style="margin:0 2px 12px">This tab tracks balance, limit and available credit. The monthly payment also shows on your Timeline.</div>
+    <div class="list">${list}</div>`;
 }
 
 /* ---------- GOALS -------------------------------------------------------- */
@@ -747,20 +772,19 @@ function renderGoals(v, built){
   const list = state.goals.map(g=>{
     const target = num(g.targetAmount);
     const r = goalDate(items, target);
-    const when = r.now ? '✓ Affordable now' : (r.date ? fmtMonShort(r.date) : 'Beyond forecast horizon');
+    const answer = r.now ? 'You can afford this now'
+      : (r.date ? `Affordable from ${fmtMonShort(r.date)}` : 'Not affordable within your forecast yet');
     const pct = target>0 ? clamp(todayBal/target,0,1) : 0;
     return `<div class="row-card" data-edit-goal="${g.id}">
       <div class="rc-top"><span class="name">${esc(g.name)}</span><span class="r-amt" style="color:var(--ink)">${fmtMoney(target)}</span></div>
-      <div class="rc-grid">
-        <div class="cell"><div class="lab">Affordable from</div><div class="val" style="color:${r.date?'var(--in)':'var(--warn)'}">${when}</div></div>
-        <div class="cell"><div class="lab">Forecast now</div><div class="val">${fmtMoney(todayBal)}</div></div>
-      </div>
+      <div class="goal-answer" style="color:${r.date?'var(--in)':'var(--warn)'}">${answer}</div>
       <div class="progress"><i style="width:${Math.round(pct*100)}%"></i></div>
-      <div class="hint" style="margin:7px 0 0">${Math.round(pct*100)}% of target (current forecast balance)</div>
+      <div class="hint" style="margin:8px 0 0">Forecast balance today ${fmtMoney(todayBal)} · ${Math.round(pct*100)}% of ${fmtMoney(target)}</div>
     </div>`;
   }).join('');
-  v.innerHTML = `<div class="vhead"><h2>Goals</h2><button class="btn primary sm" data-act="add-goal">＋ Goal</button></div><div class="list">${list}</div>
-    <div class="hint" style="margin:14px 2px">“Affordable from” = the first date your forecast can cover this goal and stay positive afterward, within your ${state.settings.horizonMonths}-month horizon.</div>`;
+  v.innerHTML = `<div class="vhead"><h2>Goals</h2><button class="btn primary sm" data-act="add-goal">＋ Goal</button></div>
+    <div class="hint" style="margin:0 2px 12px">Add a goal and the app tells you when you can afford it — the first date your forecast covers it and stays positive afterward. It updates automatically as you edit your timeline, so there’s nothing else to do.</div>
+    <div class="list">${list}</div>`;
 }
 
 function emptyState(icon,title,body,act,btn){
