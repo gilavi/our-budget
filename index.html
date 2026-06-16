@@ -905,7 +905,7 @@ function goalForm(g){
   openModal(`
     <h3>${g?'Edit goal':'New goal'}</h3>
     <form data-kind="goal" data-id="${g?esc(g.id):''}">
-      <label class="fld"><span>Goal</span><input name="name" value="${esc(g?.name)}" placeholder="e.g. Porsche Cayenne deposit" autocomplete="off"></label>
+      <label class="fld"><span>Goal</span><input name="name" value="${esc(g?.name)}" placeholder="e.g. New car deposit" autocomplete="off"></label>
       <label class="fld"><span>Target amount (${CUR})</span><input type="number" inputmode="decimal" step="0.01" name="targetAmount" value="${g?g.targetAmount:''}" placeholder="20000"></label>
       <div class="modal-actions">
         ${g?`<button type="button" class="btn danger" data-act="del-goal" data-id="${esc(g.id)}">Delete</button>`:''}
