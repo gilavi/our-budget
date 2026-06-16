@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#4f46e5" />
+<title>Our Budget</title>
+<style>
+/* ============================================================
+   DESIGN TOKENS  (light only)
+   ============================================================ */
+:root{
+  --bg:#f6f6f4; --panel:#ffffff; --panel-2:#f4f5f7;
+  --ink:#1a1c1e; --muted:#6b7280; --faint:#a0a6ae;
+  --line:#ebebeb; --line-2:#f2f2f1;
+  --accent:#4f46e5; --accent-ink:#ffffff; --accent-soft:#ececfb; --accent-deep:#3730a3;
+  --in:#16a34a; --in-bg:#e7f6ec;
+  --out:#dc2626; --out-bg:#fdeced;
+  --warn:#b45309; --warn-bg:#fbf1e0;
+  --today:#4f46e5; --today-bg:#ececfb;
+  --shadow:0 1px 2px rgba(17,24,39,.04), 0 2px 8px rgba(17,24,39,.05);
+  --radius:16px; --radius-sm:11px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Georgian","BPG Nino Mtavruli",Helvetica,Arial,sans-serif;
+  font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:16px}
+h1,h2,h3{margin:0;font-weight:700}
+svg{display:block}
+.app{max-width:1040px;margin:0 auto;padding:0 16px 48px}
+
+/* ---------- header ---------- */
+.topbar{display:flex;align-items:center;gap:10px;padding:18px 2px 14px;position:sticky;top:0;background:var(--bg);z-index:30}
+.brand{flex:1;min-width:0}
+.brand h1{font-size:21px;letter-spacing:-.3px}
+.brand .sub{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.icon-btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;box-shadow:var(--shadow);flex:none}
+.icon-btn svg{width:20px;height:20px}
+.icon-btn:active{transform:translateY(1px)}
+
+/* ---------- dashboard ---------- */
+.dash{margin-bottom:6px}
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 18px 16px;margin-bottom:12px}
+.hero .hlabel{font-size:13px;color:var(--muted)}
+.hero .hamt{font-size:38px;font-weight:700;letter-spacing:-.6px;line-height:1.04;margin-top:2px}
+.hero .hamt.neg{color:var(--out)}
+.hero .hfc{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--muted);margin-top:7px}
+.hero .hfc .ar{font-weight:700;font-size:15px}
+.hero .hnote{font-size:12.5px;color:var(--warn);margin-top:7px}
+.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px}
+.stat .slabel{font-size:12.5px;color:var(--muted)}
+.stat .sval{font-size:18px;font-weight:700;margin-top:2px}
+.stat .sval.in{color:var(--in)} .stat .sval.out{color:var(--out)}
+.goalbar{display:flex;align-items:center;gap:12px;background:var(--accent-soft);border-radius:14px;padding:12px 15px;margin-bottom:18px;cursor:pointer}
+.goalbar .gi,.goalbar .chev{color:var(--accent);display:flex;flex:none}
+.goalbar .chev svg{width:18px;height:18px}
+.goalbar .gt{flex:1;min-width:0}
+.goalbar .gn{font-size:13.5px;font-weight:600;color:var(--accent-deep);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.goalbar .gw{font-size:12.5px;color:var(--accent);margin-top:1px}
+
+/* ---------- nav ---------- */
+.nav{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:18px;box-shadow:var(--shadow)}
+.nav button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;border:0;background:transparent;color:var(--muted);font-weight:600;padding:9px 8px;border-radius:10px;font-size:14px}
+.nav button svg{width:18px;height:18px}
+.nav button.active{background:var(--accent);color:var(--accent-ink)}
+
+/* ---------- view header + buttons ---------- */
+.vhead{display:flex;align-items:center;gap:10px;margin:2px 2px 14px}
+.vhead h2{font-size:18px;flex:1}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px;border-radius:11px;font-weight:600;box-shadow:var(--shadow);display:inline-flex;align-items:center;gap:6px}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:9px;box-shadow:none}
+.btn.danger{color:var(--out);border-color:var(--out-bg);background:var(--panel)}
+
+/* ---------- timeline toolbar ---------- */
+.tlbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 2px 12px}
+.chips{display:flex;gap:3px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px}
+.chips button{border:0;background:transparent;color:var(--muted);font-weight:600;padding:6px 11px;border-radius:8px;font-size:13px}
+.chips button.active{background:var(--accent);color:var(--accent-ink)}
+.search{flex:1;min-width:84px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:11px;padding:9px 12px;box-shadow:var(--shadow)}
+.iconbtn-sm{border:1px solid var(--line);background:var(--panel);color:var(--muted);width:40px;height:40px;border-radius:11px;display:grid;place-items:center;box-shadow:var(--shadow);flex:none}
+.iconbtn-sm svg{width:19px;height:19px}
+
+/* ---------- timeline ---------- */
+.tl{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.tl-month{padding:14px 18px 6px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.tl-today{display:flex;align-items:center;gap:11px;padding:9px 18px;background:var(--today-bg)}
+.tl-today .pill{background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;letter-spacing:.3px}
+.tl-today .line{flex:1;height:1px;background:color-mix(in srgb,var(--accent) 30%,transparent)}
+.tl-today .bal{font-weight:700;color:var(--accent);font-size:14px}
+
+.tl-row{display:flex;align-items:center;gap:14px;padding:12px 18px;cursor:pointer}
+.tl-row + .tl-row{border-top:1px solid var(--line-2)}
+.tl-row:hover{background:var(--panel-2)}
+.tl-row.past{opacity:.66}
+.r-date{width:42px;flex:none;text-align:center}
+.r-date .dnum{display:block;font-size:17px;font-weight:700;line-height:1.05}
+.r-date .dwk{display:block;font-size:11px;color:var(--faint)}
+.r-main{flex:1;min-width:0}
+.r-desc{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-sub{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-sub .rec{display:inline-flex;color:var(--faint)}
+.cdot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.r-right{flex:none;text-align:right;min-width:96px}
+.r-amt{font-size:15px;font-weight:600;white-space:nowrap}
+.r-amt.in{color:var(--in)} .r-amt.out{color:var(--out)}
+.r-bal{font-size:13px;color:var(--muted);margin-top:1px;white-space:nowrap}
+.r-bal.neg{color:var(--out)}
+.r-baldetail{font-size:11px;color:var(--faint);margin-top:1px;white-space:nowrap}
+.badge{font-size:11px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:5px}
+.badge.over{background:var(--out-bg);color:var(--out)}
+.badge.under{background:var(--in-bg);color:var(--in)}
+.qa{margin-top:4px;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:7px;font-size:11px;font-weight:600;padding:2px 8px}
+.qa:hover{color:var(--in);border-color:var(--in)}
+.faint{color:var(--faint)}
+
+/* ---------- generic lists (loans / cards / goals / recurring) ---------- */
+.list{display:grid;gap:12px}
+.row-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:15px 16px;cursor:pointer}
+.row-card:hover{border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.rc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.rc-top .name{font-weight:700;font-size:16px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:10px 14px}
+.rc-grid .lab{font-size:12px;color:var(--muted);font-weight:500}
+.rc-grid .val{font-weight:700;font-size:15px;margin-top:2px}
+.rc-grid .val.muted{color:var(--muted);font-weight:600}
+.progress{height:7px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:12px}
+.progress > i{display:block;height:100%;background:var(--accent);border-radius:6px}
+.progress.warn > i{background:var(--warn)}
+.note{font-size:12.5px;color:var(--warn);background:var(--warn-bg);padding:8px 11px;border-radius:10px;margin-top:11px}
+
+/* ---------- category dot/tag ---------- */
+.tag{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink);max-width:100%}
+.tag .tdot{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.tag .tname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{font-size:12px;color:var(--muted);background:var(--panel-2);padding:1px 9px;border-radius:20px}
+
+/* ---------- empty state ---------- */
+.empty{text-align:center;padding:46px 20px;color:var(--muted)}
+.empty .big{font-size:34px;margin-bottom:10px}
+.empty h3{font-size:17px;color:var(--ink);font-weight:700}
+.empty p{margin:8px auto 18px;max-width:340px}
+
+/* ---------- modal / forms ---------- */
+.scrim{position:fixed;inset:0;background:rgba(17,20,28,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.scrim.open{display:flex}
+.modal{background:var(--panel);width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,.22);padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+.modal h3{font-size:19px;margin-bottom:16px}
+.fld{display:block;margin-bottom:14px}
+.fld > span{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.fld input,.fld select,.fld textarea{width:100%;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:11px;padding:11px 12px}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--accent);background:var(--panel)}
+.fld.row2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.fld.row2 > div{display:flex;flex-direction:column}
+.fld.row2 label{font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.seg-pick{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
+.seg-pick label{border:1px solid var(--line);border-radius:11px;padding:11px;text-align:center;font-weight:600;color:var(--muted)}
+.seg-pick input{display:none}
+.seg-pick input:checked + label.in{background:var(--in-bg);border-color:var(--in);color:var(--in)}
+.seg-pick input:checked + label.out{background:var(--out-bg);border-color:var(--out);color:var(--out)}
+.chk{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-weight:600;color:var(--ink)}
+.chk input{width:18px;height:18px;flex:none}
+.modal-actions{display:flex;gap:10px;margin-top:8px}
+.modal-actions .btn{flex:1;justify-content:center;padding:12px}
+.hint{font-size:12.5px;color:var(--muted);margin:-8px 0 14px;line-height:1.5}
+.scope{display:flex;gap:8px;margin-bottom:14px;background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:4px}
+.scope label{flex:1;text-align:center;padding:9px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.scope input{display:none}
+.scope input:checked + label{background:var(--accent);color:var(--accent-ink)}
+.swatches{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px}
+.swatches label{width:30px;height:30px;border-radius:50%;cursor:pointer;border:3px solid transparent}
+.swatches input{display:none}
+.swatches input:checked + label{border-color:var(--ink);transform:scale(1.08)}
+.cat-manage{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-2)}
+.cat-manage .tag{flex:1}
+.section-title{font-size:12.5px;font-weight:700;color:var(--muted);margin:20px 2px 10px}
+
+/* ---------- responsive ---------- */
+@media(max-width:760px){
+  .strip{grid-template-columns:repeat(3,1fr);gap:8px}
+}
+@media(max-width:680px){
+  .app{padding:0 13px calc(84px + env(safe-area-inset-bottom))}
+  .nav{position:fixed;left:0;right:0;bottom:0;margin:0;border:0;border-top:1px solid var(--line);border-radius:0;background:var(--panel);padding:7px 4px calc(7px + env(safe-area-inset-bottom));box-shadow:0 -3px 14px rgba(0,0,0,.06);z-index:60;gap:0}
+  .nav button{flex-direction:column;gap:3px;font-size:11px;padding:5px 3px;border-radius:12px}
+  .nav button svg{width:23px;height:23px}
+  .nav button.active{background:transparent;color:var(--accent)}
+  .hero .hamt{font-size:34px}
+  .r-right{min-width:86px}
+}
+@media(max-width:380px){
+  .hero .hamt{font-size:30px}
+  .stat .sval{font-size:16px}
+  .nav button{font-size:10px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <h1>Our budget</h1>
+      <span class="sub" id="brand-sub"></span>
+    </div>
+    <button class="icon-btn" data-act="quick-add" aria-label="Add entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="icon-btn" data-act="open-settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </div>
+
+  <div class="dash" id="dash"></div>
+  <div class="nav" id="nav"></div>
+  <div id="view"></div>
+</div>
+
+<div class="scrim" id="scrim"><div class="modal" id="modal"></div></div>
+
+<script>
+"use strict";
+/* ============================================================================
+   OUR BUDGET — single-file personal budgeting app
+   Data lives in localStorage. No server, no login, no dependencies.
+   ============================================================================ */
+
+/* ---------- tiny helpers ------------------------------------------------- */
+const $  = sel => document.querySelector(sel);
+const CUR = '₾';
+const pad2 = n => String(n).padStart(2,'0');
+const uid = p => (p||'id') + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-3);
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const num = v => { const n = parseFloat(v); return isNaN(n)?0:n; };
+const numOrNull = v => { if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
+
+// dates are 'YYYY-MM-DD' strings, parsed as LOCAL midnight to avoid TZ drift
+const ymd = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const parseYmd = s => { const [y,m,d] = String(s).split('-').map(Number); return new Date(y,(m||1)-1,d||1); };
+const today = () => { const d=new Date(); d.setHours(0,0,0,0); return d; };
+const todayYmd = () => ymd(today());
+const addMonths = (d,n) => new Date(d.getFullYear(), d.getMonth()+n, d.getDate());
+const lastDayOfMonth = (y,m) => new Date(y,m+1,0).getDate();
+const clampDay = (y,m,day) => Math.min(day, lastDayOfMonth(y,m));
+const startOfMonth = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const endOfMonth   = d => new Date(d.getFullYear(), d.getMonth()+1, 0);
+
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONF= ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const WK  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const fmtMonYear = d => `${MONF[d.getMonth()]} ${d.getFullYear()}`;
+const fmtMonShort = d => `${MON[d.getMonth()]} ${d.getFullYear()}`;
+
+function fmtMoney(n, signed){
+  if(n==null||n==='') return '—';
+  const neg = n < 0, abs = Math.abs(n);
+  const frac = Math.round(abs*100)%100 !== 0;
+  const s = abs.toLocaleString('en-US',{minimumFractionDigits:frac?2:0, maximumFractionDigits:2});
+  if(signed) return (neg?'−':'+') + CUR + s;
+  return (neg?'−':'') + CUR + s;
+}
+// amount shown with a sign that follows the entry's direction (income +, expense −)
+const signedAmt = (direction, value) => (direction==='in'?'+':'−') + fmtMoney(Math.abs(num(value)));
+
+/* ---------- inline icons (stroke = currentColor) ------------------------ */
+const ICONS = {
+  timeline:'<path d="M4 6h16M4 12h16M4 18h11"/>',
+  recurring:'<path d="M17 3l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 21l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  loans:'<path d="M3 21h18"/><path d="M12 3l8 5H4z"/><path d="M6 9v12M10 9v12M14 9v12M18 9v12"/>',
+  cards:'<rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/>',
+  goals:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  filter:'<path d="M4 7h16M7 12h10M10 17h4"/>',
+  chev:'<path d="M9 6l6 6-6 6"/>',
+};
+const icon = (name,size) => `<svg viewBox="0 0 24 24" width="${size||22}" height="${size||22}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`;
+
+/* ---------- default category palette ------------------------------------ */
+const PALETTE = ['#15803d','#0e7490','#db2777','#ea580c','#7c3aed','#2563eb','#dc2626','#0d9488','#ca8a04','#4f46e5','#be123c','#475569'];
+
+/* ============================================================================
+   STATE
+   ============================================================================ */
+const LS_KEY = 'ourbudget.v1';
+let state, ui = { tab:'timeline', range:6, showPast:false, search:'' };
+
+function defaultState(){
+  const cats = [
+    {id:'c-income', name:'Income',      color:'#15803d'},
+    {id:'c-other',  name:'Other',       color:'#475569'},
+    {id:'c-beauty', name:'Beauty',      color:'#db2777'},
+    {id:'c-gas',    name:'Gas',         color:'#ea580c'},
+    {id:'c-fun',    name:'Fun',         color:'#7c3aed'},
+    {id:'c-carloan',name:'Car Loan',    color:'#2563eb'},
+    {id:'c-card',   name:'Credit Card', color:'#dc2626'},
+    {id:'c-bnpl',   name:'BNPL',        color:'#0d9488'},
+  ];
+  const anchor = ymd(startOfMonth(new Date()));
+  return {
+    version:1,
+    settings:{
+      anchorBalance:0, anchorDate:anchor,
+      people:['Me','Partner'],
+      horizonMonths:36, detailedBalances:false,
+    },
+    categories:cats,
+    entries:[],                 // one-off events
+    recurring:[                 // repeating rules
+      {id:'r-salary', direction:'in',  category:'c-income',  description:'Salary (example)',
+       planned:2000, person:'Me', daysOfMonth:[15,30], everyNMonths:1,
+       startDate:anchor, endDate:null, active:true},
+      {id:'r-carloan', direction:'out', category:'c-carloan', description:'Loan payment (example)',
+       planned:700, person:null, daysOfMonth:[30], everyNMonths:1,
+       startDate:anchor, endDate:null, active:true},
+    ],
+    overrides:{},               // per-occurrence edits  key = `${ruleId}::${YYYY-MM-DD}`
+    loans:[
+      {id:'l-car', name:'Loan (example)', originalAmount:null, currentBalance:null,
+       monthlyPayment:700, paymentDay:30, interestRate:0,
+       category:'c-carloan', linkedRecurringId:'r-carloan'},
+    ],
+    cards:[],
+    goals:[
+      {id:'g-porsche', name:'Savings goal (example)', targetAmount:10000},
+    ],
+  };
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw){ state = defaultState(); save(); return; }
+    const s = JSON.parse(raw);
+    const d = defaultState();
+    state = Object.assign({}, d, s);
+    state.settings = Object.assign({}, d.settings, s.settings||{});
+    for(const k of ['categories','entries','recurring','loans','cards','goals'])
+      if(!Array.isArray(state[k])) state[k] = d[k];
+    if(typeof state.overrides!=='object'||!state.overrides) state.overrides = {};
+  }catch(e){
+    console.error('Load failed, starting fresh', e);
+    state = defaultState();
+  }
+  try{ const u = JSON.parse(localStorage.getItem(LS_KEY+'.ui')); if(u) ui = Object.assign(ui,u); }catch(e){}
+}
+let saveTimer;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert('Could not save — storage may be full.'); } }, 120);
+}
+function saveUi(){ try{ localStorage.setItem(LS_KEY+'.ui', JSON.stringify(ui)); }catch(e){} }
+
+const catById = id => state.categories.find(c=>c.id===id) || {id, name:'Uncategorised', color:'#9aa1ab'};
+
+/* ============================================================================
+   PROJECTION ENGINE  — the heart of the app
+   ============================================================================ */
+function generateOccurrences(rule, anchorDate, horizon){
+  if(rule.active===false) return [];
+  const start = parseYmd(rule.startDate || ymd(anchorDate));
+  const lower = anchorDate > start ? anchorDate : start;     // never before anchor
+  const end   = rule.endDate ? parseYmd(rule.endDate) : horizon;
+  const upper = end < horizon ? end : horizon;
+  const step  = Math.max(1, rule.everyNMonths||1);
+  const days  = [...new Set((rule.daysOfMonth||[1]).map(Number))].sort((a,b)=>a-b);
+  const out = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  let guard = 0;
+  while(cursor <= upper && guard++ < 1200){
+    for(const day of days){
+      const d = new Date(cursor.getFullYear(), cursor.getMonth(), clampDay(cursor.getFullYear(),cursor.getMonth(),day));
+      if(d >= start && d >= lower && d <= upper) out.push(ymd(d));
+    }
+    cursor = addMonths(cursor, step);
+  }
+  return out;
+}
+
+function buildItems(){
+  const anchorDate = parseYmd(state.settings.anchorDate);
+  const horizon = addMonths(today(), state.settings.horizonMonths||36);
+  const items = [];
+
+  for(const e of state.entries){
+    if(parseYmd(e.date) < anchorDate) continue;
+    items.push({
+      id:e.id, source:'entry', date:e.date,
+      direction:e.direction, category:e.category, description:e.description,
+      planned:num(e.planned), actual:(e.actual==null||e.actual==='')?null:num(e.actual),
+      person:e.person||null,
+    });
+  }
+  for(const r of state.recurring){
+    for(const date of generateOccurrences(r, anchorDate, horizon)){
+      const key = r.id+'::'+date;
+      const ov = state.overrides[key];
+      if(ov && ov.skipped) continue;
+      items.push({
+        id:key, source:'recurring', recurringId:r.id, overrideKey:key, date,
+        direction: ov?.direction ?? r.direction,
+        category:  ov?.category  ?? r.category,
+        description: ov?.description ?? r.description,
+        planned:   num(ov?.planned ?? r.planned),
+        actual:    (ov?.actual==null||ov?.actual==='') ? null : num(ov.actual),
+        person:    ov?.person ?? r.person ?? null,
+      });
+    }
+  }
+
+  items.sort((a,b)=>{
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    if(a.direction!==b.direction) return a.direction==='in'?-1:1;   // income first within a day
+    return (a.description||'').localeCompare(b.description||'');
+  });
+
+  const sgn = (dir,v) => dir==='in' ? v : -v;
+  let bal = num(state.settings.anchorBalance), plan = bal, act = bal;
+  for(const it of items){
+    it.hasActual = it.actual!=null;
+    const eff = it.hasActual ? it.actual : it.planned;
+    bal  += sgn(it.direction, eff);          it.runProjected = bal;
+    plan += sgn(it.direction, it.planned);   it.runPlanned   = plan;
+    if(it.hasActual) act += sgn(it.direction, it.actual);
+    it.runActual = act;
+    it.variance = it.hasActual ? (it.actual - it.planned) : 0;
+  }
+  return { items, anchorDate, horizon };
+}
+
+// projected (blended: actual where known, else planned) balance at end of a given date
+function projectedAt(items, dateObj){
+  const lim = ymd(dateObj);
+  let bal = num(state.settings.anchorBalance);
+  const sgn = (dir,v)=> dir==='in'? v : -v;
+  for(const it of items){
+    if(it.date > lim) break;
+    bal += sgn(it.direction, it.hasActual ? it.actual : it.planned);
+  }
+  return bal;
+}
+
+// current ACTUAL balance = anchor + signed actuals for items dated <= today
+function currentActual(items){
+  const t = todayYmd();
+  let bal = num(state.settings.anchorBalance), missing = 0;
+  const sgn = (dir,v)=> dir==='in'? v : -v;
+  for(const it of items){
+    if(it.date > t) break;
+    if(it.hasActual) bal += sgn(it.direction, it.actual);
+    else missing++;
+  }
+  return { bal, missing };
+}
+
+// earliest date the goal is affordable: from then on, projected balance never drops below target
+function goalDate(items, target){
+  const t = today();
+  const pts = [{date:t, bal:projectedAt(items, t)}];
+  for(const it of items){
+    if(parseYmd(it.date) > t) pts.push({date:parseYmd(it.date), bal:it.runProjected});
+  }
+  let min = Infinity, idx = -1;
+  for(let i=pts.length-1;i>=0;i--){           // suffix-minimum scan
+    min = Math.min(min, pts[i].bal);
+    if(min >= target) idx = i;
+  }
+  if(idx===-1) return {date:null};
+  if(idx===0)  return {date:t, now:true};
+  return {date:pts[idx].date};
+}
+
+/* ---------- loan / card maths ------------------------------------------- */
+function loanInfo(loan){
+  const bal = numOrNull(loan.currentBalance), pay = num(loan.monthlyPayment);
+  const orig = numOrNull(loan.originalAmount);
+  const rate = num(loan.interestRate)/100/12;
+  let months=null, payoff=null, neverPays=false;
+  if(bal!=null && bal>0 && pay>0){
+    if(rate>0){
+      const x = 1 - rate*bal/pay;
+      if(x<=0){ neverPays=true; } else months = Math.ceil(-Math.log(x)/Math.log(1+rate));
+    } else months = Math.ceil(bal/pay);
+    if(months!=null) payoff = addMonths(today(), months);
+  }
+  let progress=null;
+  if(orig && orig>0 && bal!=null) progress = clamp(1 - bal/orig, 0, 1);
+  return { bal, pay, orig, months, payoff, progress, neverPays };
+}
+
+/* ============================================================================
+   RENDER — orchestrator
+   ============================================================================ */
+function render(){
+  $('#brand-sub').textContent = state.settings.people.filter(Boolean).join(' & ');
+  const built = buildItems();
+  renderDashboard(built);
+  renderNav();
+  const v = $('#view');
+  if(ui.tab==='timeline') renderTimeline(v, built);
+  else if(ui.tab==='recurring') renderRecurring(v);
+  else if(ui.tab==='loans') renderLoans(v);
+  else if(ui.tab==='cards') renderCards(v);
+  else if(ui.tab==='goals') renderGoals(v, built);
+}
+
+/* ---------- dashboard ---------------------------------------------------- */
+function renderDashboard(built){
+  const { items } = built;
+  const ca = currentActual(items);
+  const eom = projectedAt(items, endOfMonth(today()));
+
+  const ms = startOfMonth(today()), me = endOfMonth(today());
+  let inc=0, exp=0;
+  for(const it of items){
+    const d = parseYmd(it.date);
+    if(d<ms || d>me) continue;
+    const v = it.hasActual ? it.actual : it.planned;
+    if(it.direction==='in') inc += v; else exp += v;
+  }
+
+  let debt = 0;
+  for(const l of state.loans) debt += num(l.currentBalance);
+  for(const c of state.cards) debt += num(c.balance);
+
+  const up = eom >= ca.bal;
+  const arrow = `<span class="ar" style="color:${up?'var(--in)':'var(--out)'}">${up?'↗':'↘'}</span>`;
+
+  let goalBar = '';
+  if(state.goals.length){
+    const ranked = state.goals.map(g=>({g, r:goalDate(items, num(g.targetAmount))}))
+      .sort((a,b)=>{
+        const av = a.r.now?0:(a.r.date?a.r.date.getTime():Infinity);
+        const bv = b.r.now?0:(b.r.date?b.r.date.getTime():Infinity);
+        return av-bv;
+      });
+    const top = ranked[0];
+    const when = top.r.now ? 'Affordable now' : (top.r.date ? `Affordable from ${fmtMonShort(top.r.date)}` : 'Beyond forecast horizon');
+    goalBar = `<div class="goalbar" data-tab="goals">
+      <span class="gi">${icon('goals',20)}</span>
+      <div class="gt"><div class="gn">${esc(top.g.name)} · ${fmtMoney(num(top.g.targetAmount))}</div><div class="gw">${esc(when)}</div></div>
+      <span class="chev">${icon('chev',18)}</span>
+    </div>`;
+  }
+
+  $('#dash').innerHTML = `
+    <div class="hero">
+      <div class="hlabel">Balance today</div>
+      <div class="hamt ${ca.bal<0?'neg':''}">${fmtMoney(ca.bal)}</div>
+      <div class="hfc">${arrow}<span>${fmtMoney(eom)} forecast by end of ${MONF[today().getMonth()]}</span></div>
+      ${ca.missing?`<div class="hnote">${ca.missing} past item${ca.missing>1?'s':''} need${ca.missing>1?'':'s'} actuals</div>`:''}
+    </div>
+    <div class="strip">
+      <div class="stat"><div class="slabel">In · ${MON[today().getMonth()]}</div><div class="sval in">${fmtMoney(inc)}</div></div>
+      <div class="stat"><div class="slabel">Out · ${MON[today().getMonth()]}</div><div class="sval out">${fmtMoney(exp)}</div></div>
+      <div class="stat"><div class="slabel">Total debt</div><div class="sval">${fmtMoney(debt)}</div></div>
+    </div>
+    ${goalBar}`;
+}
+
+/* ---------- nav ---------------------------------------------------------- */
+const TABS = [['timeline','Timeline'],['recurring','Recurring'],['loans','Loans'],['cards','Cards'],['goals','Goals']];
+function renderNav(){
+  $('#nav').innerHTML = TABS.map(([id,label])=>
+    `<button data-tab="${id}" class="${ui.tab===id?'active':''}">${icon(id,18)}<span>${label}</span></button>`).join('');
+}
+
+/* ---------- TIMELINE ----------------------------------------------------- */
+function tagHtml(catId){
+  const c = catById(catId);
+  return `<span class="tag" style="--c:${c.color}"><span class="tdot"></span><span class="tname">${esc(c.name)}</span></span>`;
+}
+function catDot(catId){
+  const c = catById(catId);
+  return `<span class="cdot" style="background:${c.color}"></span>${esc(c.name)}`;
+}
+function renderTimeline(v, built){
+  const { items } = built;
+  const t = todayYmd();
+  const from = ui.showPast ? '0000-00-00' : ymd(startOfMonth(today()));
+  const to   = ui.range==='all' ? '9999-99-99' : ymd(endOfMonth(addMonths(today(), ui.range-1)));
+  const q = ui.search.trim().toLowerCase();
+
+  let view = items.filter(it=> it.date>=from && it.date<=to);
+  if(q) view = view.filter(it=>{
+    const c = catById(it.category);
+    return (it.description||'').toLowerCase().includes(q)
+        || (c.name||'').toLowerCase().includes(q)
+        || (it.person||'').toLowerCase().includes(q)
+        || String(it.planned).includes(q);
+  });
+
+  let rows = '', lastMonth = '', todayShown = false;
+  const firstFutureIdx = view.findIndex(it=> it.date >= t);
+
+  view.forEach((it,i)=>{
+    const d = parseYmd(it.date);
+    const mk = d.getFullYear()+'-'+d.getMonth();
+    if(mk!==lastMonth){ rows += `<div class="tl-month">${fmtMonYear(d)}</div>`; lastMonth = mk; }
+    if(!todayShown && !q && i===firstFutureIdx && firstFutureIdx!==-1){
+      rows += todayDivider(built); todayShown = true;
+    }
+    rows += rowHtml(it, t);
+  });
+  if(!todayShown && !q){ rows += todayDivider(built); }
+
+  v.innerHTML = `
+    <div class="tlbar">
+      <div class="chips">
+        ${[['3','3m'],['6','6m'],['12','1y'],['all','All']].map(([r,l])=>
+          `<button data-range="${r}" class="${String(ui.range)===r?'active':''}">${l}</button>`).join('')}
+      </div>
+      <input class="search" placeholder="Search…" value="${esc(ui.search)}" data-act="search">
+      <button class="iconbtn-sm" data-act="open-filters" aria-label="Filters" title="Filters">${icon('filter',19)}</button>
+    </div>
+    ${view.length ? `<div class="tl">${rows}</div>`
+      : `<div class="empty"><div class="big">🗓️</div><h3>Nothing here yet</h3><p>No entries in this range.</p><button class="btn primary" data-act="add-entry">Add an entry</button></div>`}`;
+}
+function todayDivider(built){
+  const ca = currentActual(built.items);
+  return `<div class="tl-today"><span class="pill">Today</span><span class="line"></span><span class="bal">${fmtMoney(ca.bal)}</span></div>`;
+}
+function rowHtml(it, t){
+  const past = it.date < t;
+  const dir = it.direction;
+  const d = parseYmd(it.date);
+  const eff = it.hasActual ? it.actual : it.planned;
+
+  let badge = '';
+  if(it.hasActual && Math.abs(it.variance) >= 0.01){
+    const over = (dir==='in') ? it.variance<0 : it.variance>0; // worse-than-planned direction
+    badge = `<span class="badge ${over?'over':'under'}">${it.variance>0?'+':'−'}${fmtMoney(Math.abs(it.variance))}</span>`;
+  }
+  const qa = (past && !it.hasActual) ? `<button class="qa" data-quick="${esc(it.id)}" title="Mark actual = planned">✓ planned</button>` : '';
+
+  const person = it.person ? ` · ${esc(it.person)}` : '';
+  const rec = it.source==='recurring' ? `<span class="rec" title="Recurring">${icon('recurring',13)}</span>` : '';
+  const negCls = it.runProjected<0 ? ' neg' : '';
+  const detail = state.settings.detailedBalances
+    ? `<div class="r-baldetail">plan ${fmtMoney(it.runPlanned)}${it.hasActual?` · act ${fmtMoney(it.runActual)}`:''}</div>` : '';
+
+  return `<div class="tl-row ${past?'past':''}" data-edit="${esc(it.id)}">
+    <div class="r-date"><span class="dnum">${d.getDate()}</span><span class="dwk">${WK[d.getDay()]}</span></div>
+    <div class="r-main">
+      <div class="r-desc">${esc(it.description)||'<span class="faint">No description</span>'}</div>
+      <div class="r-sub">${catDot(it.category)}${person}${rec}</div>
+    </div>
+    <div class="r-right">
+      <div class="r-amt ${dir}">${signedAmt(dir, eff)}${badge}</div>
+      <div class="r-bal${negCls}">${fmtMoney(it.runProjected)}</div>
+      ${detail}${qa}
+    </div>
+  </div>`;
+}
+
+/* ---------- RECURRING ---------------------------------------------------- */
+function freqText(r){
+  const days = (r.daysOfMonth||[]).join(', ');
+  const every = (r.everyNMonths||1)>1 ? `every ${r.everyNMonths} months` : 'monthly';
+  return `${every} on day ${days}`;
+}
+function renderRecurring(v){
+  const list = state.recurring.length ? `<div class="list">${state.recurring.map(r=>{
+    return `<div class="row-card" data-edit-recurring="${r.id}">
+      <div class="rc-top">
+        ${tagHtml(r.category)}
+        <span class="name">${esc(r.description)}</span>
+        <span class="r-amt ${r.direction}">${signedAmt(r.direction, r.planned)}</span>
+      </div>
+      <div class="r-sub" style="flex-wrap:wrap">
+        <span>${freqText(r)}</span>
+        ${r.person?`<span class="chip">${esc(r.person)}</span>`:''}
+        ${r.endDate?`<span class="chip">ends ${esc(r.endDate)}</span>`:''}
+        ${r.active===false?`<span class="chip" style="color:var(--warn)">paused</span>`:''}
+      </div>
+    </div>`;
+  }).join('')}</div>` : emptyState('↻','No recurring entries','Set up salaries, loan payments, rent and subscriptions once — they appear on the timeline automatically.','add-recurring','Add recurring entry');
+  v.innerHTML = `<div class="vhead"><h2>Recurring</h2>${state.recurring.length?'<button class="btn primary sm" data-act="add-recurring">＋ Recurring</button>':''}</div>${list}`;
+}
+
+/* ---------- LOANS -------------------------------------------------------- */
+function renderLoans(v){
+  if(!state.loans.length){
+    v.innerHTML = `<div class="vhead"><h2>Loans</h2></div>${emptyState('🏦','No loans tracked','Track each loan’s balance, monthly payment and estimated payoff date. Payments show on your timeline.','add-loan','Add a loan')}`;
+    return;
+  }
+  const list = state.loans.map(l=>{
+    const info = loanInfo(l);
+    const pct = info.progress!=null ? Math.round(info.progress*100) : null;
+    let payoffTxt;
+    if(info.bal==null) payoffTxt = 'Set remaining balance';
+    else if(info.bal<=0) payoffTxt = '✓ Paid off';
+    else if(info.neverPays) payoffTxt = 'Payment too low';
+    else if(info.payoff) payoffTxt = fmtMonShort(info.payoff) + (info.months?` · ${info.months} mo`:'');
+    else payoffTxt = '—';
+    return `<div class="row-card" data-edit-loan="${l.id}">
+      <div class="rc-top">${tagHtml(l.category||'c-carloan')}<span class="name">${esc(l.name)}</span></div>
+      <div class="rc-grid">
+        <div class="cell"><div class="lab">Remaining</div><div class="val ${info.bal==null?'muted':''}">${info.bal==null?'set':fmtMoney(info.bal)}</div></div>
+        <div class="cell"><div class="lab">Monthly</div><div class="val">${fmtMoney(num(l.monthlyPayment))}</div></div>
+        <div class="cell"><div class="lab">Original</div><div class="val ${info.orig==null?'muted':''}">${info.orig==null?'—':fmtMoney(info.orig)}</div></div>
+        <div class="cell"><div class="lab">Payoff</div><div class="val ${info.bal==null||info.neverPays?'muted':''}">${payoffTxt}</div></div>
+      </div>
+      ${pct!=null?`<div class="progress"><i style="width:${pct}%"></i></div><div class="hint" style="margin:7px 0 0">${pct}% paid off</div>`:''}
+      ${info.bal==null?`<div class="note">Add the remaining balance to see payoff date and progress.</div>`:''}
+    </div>`;
+  }).join('');
+  v.innerHTML = `<div class="vhead"><h2>Loans</h2><button class="btn primary sm" data-act="add-loan">＋ Loan</button></div><div class="list">${list}</div>`;
+}
+
+/* ---------- CARDS -------------------------------------------------------- */
+function renderCards(v){
+  if(!state.cards.length){
+    v.innerHTML = `<div class="vhead"><h2>Credit cards</h2></div>${emptyState('💳','No cards tracked','Track balance, limit and available credit. Payments show on your timeline.','add-card','Add a card')}`;
+    return;
+  }
+  const list = state.cards.map(c=>{
+    const bal=num(c.balance), lim=num(c.limit), avail=lim-bal;
+    const util = lim>0 ? clamp(bal/lim,0,1) : 0;
+    const pct = Math.round(util*100);
+    return `<div class="row-card" data-edit-card="${c.id}">
+      <div class="rc-top">${tagHtml('c-card')}<span class="name">${esc(c.name)}</span></div>
+      <div class="rc-grid">
+        <div class="cell"><div class="lab">Balance</div><div class="val" style="color:var(--out)">${fmtMoney(bal)}</div></div>
+        <div class="cell"><div class="lab">Available</div><div class="val" style="color:var(--in)">${fmtMoney(avail)}</div></div>
+        <div class="cell"><div class="lab">Limit</div><div class="val">${fmtMoney(lim)}</div></div>
+        <div class="cell"><div class="lab">Monthly</div><div class="val">${c.monthlyPayment?fmtMoney(num(c.monthlyPayment)):'—'}</div></div>
+      </div>
+      <div class="progress ${pct>=70?'warn':''}"><i style="width:${pct}%"></i></div>
+      <div class="hint" style="margin:7px 0 0">${pct}% of limit used</div>
+    </div>`;
+  }).join('');
+  v.innerHTML = `<div class="vhead"><h2>Credit cards</h2><button class="btn primary sm" data-act="add-card">＋ Card</button></div><div class="list">${list}</div>`;
+}
+
+/* ---------- GOALS -------------------------------------------------------- */
+function renderGoals(v, built){
+  const { items } = built;
+  if(!state.goals.length){
+    v.innerHTML = `<div class="vhead"><h2>Goals</h2></div>${emptyState('🎯','No goals yet','Add a big goal and the app tells you the date your forecast can afford it — without going negative.','add-goal','Add a goal')}`;
+    return;
+  }
+  const todayBal = projectedAt(items, today());
+  const list = state.goals.map(g=>{
+    const target = num(g.targetAmount);
+    const r = goalDate(items, target);
+    const when = r.now ? '✓ Affordable now' : (r.date ? fmtMonShort(r.date) : 'Beyond forecast horizon');
+    const pct = target>0 ? clamp(todayBal/target,0,1) : 0;
+    return `<div class="row-card" data-edit-goal="${g.id}">
+      <div class="rc-top"><span class="name">${esc(g.name)}</span><span class="r-amt" style="color:var(--ink)">${fmtMoney(target)}</span></div>
+      <div class="rc-grid">
+        <div class="cell"><div class="lab">Affordable from</div><div class="val" style="color:${r.date?'var(--in)':'var(--warn)'}">${when}</div></div>
+        <div class="cell"><div class="lab">Forecast now</div><div class="val">${fmtMoney(todayBal)}</div></div>
+      </div>
+      <div class="progress"><i style="width:${Math.round(pct*100)}%"></i></div>
+      <div class="hint" style="margin:7px 0 0">${Math.round(pct*100)}% of target (current forecast balance)</div>
+    </div>`;
+  }).join('');
+  v.innerHTML = `<div class="vhead"><h2>Goals</h2><button class="btn primary sm" data-act="add-goal">＋ Goal</button></div><div class="list">${list}</div>
+    <div class="hint" style="margin:14px 2px">“Affordable from” = the first date your forecast can cover this goal and stay positive afterward, within your ${state.settings.horizonMonths}-month horizon.</div>`;
+}
+
+function emptyState(icon,title,body,act,btn){
+  return `<div class="empty"><div class="big">${icon}</div><h3>${title}</h3><p>${body}</p><button class="btn primary" data-act="${act}">${btn}</button></div>`;
+}
+
+/* ============================================================================
+   MODALS / FORMS
+   ============================================================================ */
+function openModal(html){ $('#modal').innerHTML = html; $('#scrim').classList.add('open'); }
+function closeModal(){ $('#scrim').classList.remove('open'); $('#modal').innerHTML=''; }
+
+function catOptions(sel){ return state.categories.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${esc(c.name)}</option>`).join(''); }
+function personOptions(sel){
+  return `<option value="" ${!sel?'selected':''}>— none —</option>` +
+    state.settings.people.filter(Boolean).map(p=>`<option value="${esc(p)}" ${p===sel?'selected':''}>${esc(p)}</option>`).join('');
+}
+
+/* ----- timeline filters sheet ------------------------------------------- */
+function filterSheet(){
+  openModal(`
+    <h3>Filters</h3>
+    <label class="chk"><input type="checkbox" data-act="toggle-past" ${ui.showPast?'checked':''}> Show past months</label>
+    <label class="chk"><input type="checkbox" data-act="toggle-detail" ${state.settings.detailedBalances?'checked':''}> Show planned vs actual balances</label>
+    <div class="hint">Past months are hidden by default so the timeline stays focused on what’s ahead.</div>
+    <div class="modal-actions"><button type="button" class="btn primary" data-act="close-modal">Done</button></div>`);
+}
+
+/* ----- entry (one-off OR recurring occurrence) -------------------------- */
+function entryForm(item){
+  const isOcc = item && item.source==='recurring';
+  const dir = item?.direction || 'out';
+  const dateV = item?.date || todayYmd();
+  const title = item ? (isOcc?'Edit occurrence':'Edit entry') : 'New entry';
+  openModal(`
+    <h3>${title}</h3>
+    <form data-kind="entry" data-id="${item?esc(item.id):''}" data-occ="${isOcc?'1':''}" data-rid="${isOcc?esc(item.recurringId):''}">
+      <div class="seg-pick">
+        <input type="radio" name="direction" id="d-out" value="out" ${dir==='out'?'checked':''}><label for="d-out" class="out">－ Expense</label>
+        <input type="radio" name="direction" id="d-in" value="in" ${dir==='in'?'checked':''}><label for="d-in" class="in">＋ Income</label>
+      </div>
+      <label class="fld"><span>Description</span><input name="description" value="${esc(item?.description)}" placeholder="e.g. Rent / ქირა" autocomplete="off"></label>
+      <div class="fld row2">
+        <div><label>Date</label><input type="date" name="date" value="${dateV}"></div>
+        <div><label>Category</label><select name="category">${catOptions(item?.category||'c-other')}</select></div>
+      </div>
+      <div class="fld row2">
+        <div><label>Planned (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="planned" value="${item?item.planned:''}" placeholder="0"></div>
+        <div><label>Actual (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="actual" value="${item&&item.hasActual?item.actual:''}" placeholder="leave empty if future"></div>
+      </div>
+      <label class="fld"><span>Person (for income)</span><select name="person">${personOptions(item?.person)}</select></label>
+      ${isOcc?`<div class="hint">This is one occurrence of a recurring entry. Choose what to change:</div>
+        <div class="scope">
+          <input type="radio" name="scope" id="sc-one" value="one" checked><label for="sc-one">This one only</label>
+          <input type="radio" name="scope" id="sc-all" value="all"><label for="sc-all">Whole series</label>
+        </div>`:''}
+      <div class="modal-actions">
+        ${item?`<button type="button" class="btn danger" data-act="del-entry" data-id="${esc(item.id)}" data-occ="${isOcc?'1':''}" data-rid="${isOcc?esc(item.recurringId):''}">${isOcc?'Skip this':'Delete'}</button>`:''}
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>`);
+}
+
+/* ----- recurring rule --------------------------------------------------- */
+function recurringForm(r){
+  openModal(`
+    <h3>${r?'Edit recurring':'New recurring'}</h3>
+    <form data-kind="recurring" data-id="${r?esc(r.id):''}">
+      <div class="seg-pick">
+        <input type="radio" name="direction" id="rd-out" value="out" ${(!r||r.direction==='out')?'checked':''}><label for="rd-out" class="out">－ Expense</label>
+        <input type="radio" name="direction" id="rd-in" value="in" ${r&&r.direction==='in'?'checked':''}><label for="rd-in" class="in">＋ Income</label>
+      </div>
+      <label class="fld"><span>Description</span><input name="description" value="${esc(r?.description)}" placeholder="e.g. Salary / Rent" autocomplete="off"></label>
+      <div class="fld row2">
+        <div><label>Amount (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="planned" value="${r?r.planned:''}" placeholder="0"></div>
+        <div><label>Category</label><select name="category">${catOptions(r?.category||'c-other')}</select></div>
+      </div>
+      <div class="fld row2">
+        <div><label>Days of month</label><input name="days" value="${r?(r.daysOfMonth||[]).join(', '):'1'}" placeholder="e.g. 15, 30"></div>
+        <div><label>Every N months</label><input type="number" min="1" step="1" name="everyNMonths" value="${r?r.everyNMonths||1:1}"></div>
+      </div>
+      <div class="fld row2">
+        <div><label>Start date</label><input type="date" name="startDate" value="${r?.startDate||todayYmd()}"></div>
+        <div><label>End date (optional)</label><input type="date" name="endDate" value="${r?.endDate||''}"></div>
+      </div>
+      <label class="fld"><span>Person (for income)</span><select name="person">${personOptions(r?.person)}</select></label>
+      <label class="chk"><input type="checkbox" name="active" ${(!r||r.active!==false)?'checked':''}> Active (generates future entries)</label>
+      <div class="modal-actions">
+        ${r?`<button type="button" class="btn danger" data-act="del-recurring" data-id="${esc(r.id)}">Delete series</button>`:''}
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>`);
+}
+
+/* ----- loan ------------------------------------------------------------- */
+function loanForm(l){
+  openModal(`
+    <h3>${l?'Edit loan':'New loan'}</h3>
+    <form data-kind="loan" data-id="${l?esc(l.id):''}">
+      <label class="fld"><span>Loan name</span><input name="name" value="${esc(l?.name)}" placeholder="e.g. Car loan" autocomplete="off"></label>
+      <div class="fld row2">
+        <div><label>Remaining balance (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="currentBalance" value="${l&&l.currentBalance!=null?l.currentBalance:''}" placeholder="owed now"></div>
+        <div><label>Original amount (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="originalAmount" value="${l&&l.originalAmount!=null?l.originalAmount:''}" placeholder="optional"></div>
+      </div>
+      <div class="fld row2">
+        <div><label>Monthly payment (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="monthlyPayment" value="${l?l.monthlyPayment:''}" placeholder="0"></div>
+        <div><label>Payment day</label><input type="number" min="1" max="31" name="paymentDay" value="${l?l.paymentDay:30}"></div>
+      </div>
+      <label class="fld"><span>Interest rate % (yearly, optional)</span><input type="number" inputmode="decimal" step="0.01" name="interestRate" value="${l?l.interestRate||'':''}" placeholder="0"></label>
+      <label class="chk"><input type="checkbox" name="addToTimeline" ${l?(l.linkedRecurringId?'checked':''):'checked'}> Show monthly payment on timeline</label>
+      <div class="modal-actions">
+        ${l?`<button type="button" class="btn danger" data-act="del-loan" data-id="${esc(l.id)}">Delete</button>`:''}
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>`);
+}
+
+/* ----- credit card ------------------------------------------------------ */
+function cardForm(c){
+  openModal(`
+    <h3>${c?'Edit card':'New credit card'}</h3>
+    <form data-kind="card" data-id="${c?esc(c.id):''}">
+      <label class="fld"><span>Card name</span><input name="name" value="${esc(c?.name)}" placeholder="e.g. TBC Visa" autocomplete="off"></label>
+      <div class="fld row2">
+        <div><label>Current balance (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="balance" value="${c?c.balance:''}" placeholder="owed now"></div>
+        <div><label>Credit limit (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="limit" value="${c?c.limit:''}" placeholder="0"></div>
+      </div>
+      <div class="fld row2">
+        <div><label>Monthly payment (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="monthlyPayment" value="${c?c.monthlyPayment||'':''}" placeholder="optional"></div>
+        <div><label>Payment day</label><input type="number" min="1" max="31" name="paymentDay" value="${c?c.paymentDay||25:25}"></div>
+      </div>
+      <label class="chk"><input type="checkbox" name="addToTimeline" ${c?(c.linkedRecurringId?'checked':''):''}> Show monthly payment on timeline</label>
+      <div class="modal-actions">
+        ${c?`<button type="button" class="btn danger" data-act="del-card" data-id="${esc(c.id)}">Delete</button>`:''}
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>`);
+}
+
+/* ----- goal ------------------------------------------------------------- */
+function goalForm(g){
+  openModal(`
+    <h3>${g?'Edit goal':'New goal'}</h3>
+    <form data-kind="goal" data-id="${g?esc(g.id):''}">
+      <label class="fld"><span>Goal</span><input name="name" value="${esc(g?.name)}" placeholder="e.g. Porsche Cayenne deposit" autocomplete="off"></label>
+      <label class="fld"><span>Target amount (${CUR})</span><input type="number" inputmode="decimal" step="0.01" name="targetAmount" value="${g?g.targetAmount:''}" placeholder="20000"></label>
+      <div class="modal-actions">
+        ${g?`<button type="button" class="btn danger" data-act="del-goal" data-id="${esc(g.id)}">Delete</button>`:''}
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>`);
+}
+
+/* ----- settings --------------------------------------------------------- */
+function settingsForm(){
+  const s = state.settings;
+  const cats = state.categories.map(c=>`
+    <div class="cat-manage">
+      <span class="tag" style="--c:${c.color}"><span class="tdot"></span><span class="tname">${esc(c.name)}</span></span>
+      <button type="button" class="btn sm" data-act="edit-cat" data-id="${c.id}">Edit</button>
+      ${state.categories.length>1?`<button type="button" class="btn sm danger" data-act="del-cat" data-id="${c.id}">✕</button>`:''}
+    </div>`).join('');
+  openModal(`
+    <h3>Settings</h3>
+    <form data-kind="settings">
+      <div class="section-title">Starting point</div>
+      <div class="fld row2">
+        <div><label>Balance on start date (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="anchorBalance" value="${s.anchorBalance}"></div>
+        <div><label>Start date</label><input type="date" name="anchorDate" value="${s.anchorDate}"></div>
+      </div>
+      <div class="hint">Set this to your real bank balance at the start date. Everything is forecast from here.</div>
+      <div class="section-title">People</div>
+      <div class="fld row2">
+        <div><label>Person 1</label><input name="p1" value="${esc(s.people[0]||'Me')}"></div>
+        <div><label>Person 2</label><input name="p2" value="${esc(s.people[1]||'Partner')}"></div>
+      </div>
+      <div class="section-title">Forecast</div>
+      <label class="fld"><span>Forecast horizon (months)</span><input type="number" min="6" max="120" name="horizonMonths" value="${s.horizonMonths}"></label>
+      <div class="modal-actions"><button type="submit" class="btn primary">Save settings</button></div>
+    </form>
+    <div class="section-title">Categories</div>
+    ${cats}
+    <button type="button" class="btn sm" style="margin-top:10px" data-act="add-cat">＋ Add category</button>
+    <div class="section-title">Backup &amp; data</div>
+    <div class="hint">Data is stored only in this browser. Export to back up or move to your phone.</div>
+    <div class="modal-actions" style="flex-wrap:wrap">
+      <button type="button" class="btn" data-act="export">Export backup</button>
+      <button type="button" class="btn" data-act="import">Import backup</button>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn danger" data-act="clear-data">Reset everything</button>
+    </div>`);
+}
+
+/* ----- category --------------------------------------------------------- */
+function categoryForm(c){
+  openModal(`
+    <h3>${c?'Edit category':'New category'}</h3>
+    <form data-kind="category" data-id="${c?esc(c.id):''}">
+      <label class="fld"><span>Name</span><input name="name" value="${esc(c?.name)}" placeholder="e.g. Groceries / საკვები" autocomplete="off"></label>
+      <div class="fld"><span>Colour</span></div>
+      <div class="swatches">
+        ${PALETTE.map((col,i)=>`<input type="radio" name="color" id="sw${i}" value="${col}" ${(c?c.color===col:i===0)?'checked':''}><label for="sw${i}" style="background:${col}"></label>`).join('')}
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-act="back-settings">Back</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>`);
+}
+
+/* ============================================================================
+   FORM SUBMIT HANDLERS
+   ============================================================================ */
+function handleSubmit(form){
+  const data = Object.fromEntries(new FormData(form));
+  const kind = form.dataset.kind;
+
+  if(kind==='entry'){
+    const occ = form.dataset.occ==='1';
+    const fields = {
+      direction:data.direction, date:data.date, category:data.category,
+      description:(data.description||'').trim(),
+      planned:num(data.planned), actual:numOrNull(data.actual),
+      person:data.person||null,
+    };
+    if(occ){
+      const rid = form.dataset.rid;
+      const oldId = form.dataset.id;             // `${rid}::${oldDate}`
+      const oldDate = oldId.split('::')[1];
+      if(data.scope==='all'){
+        const r = state.recurring.find(x=>x.id===rid);
+        if(r){ r.direction=fields.direction; r.category=fields.category; r.description=fields.description; r.planned=fields.planned; r.person=fields.person; }
+        if(fields.actual!=null) setOverride(rid, oldDate, {actual:fields.actual});
+      }else{
+        if(state.overrides[rid+'::'+oldDate]) delete state.overrides[rid+'::'+oldDate];
+        setOverride(rid, fields.date, {
+          direction:fields.direction, category:fields.category, description:fields.description,
+          planned:fields.planned, actual:fields.actual, person:fields.person,
+        });
+      }
+    } else if(form.dataset.id){
+      const e = state.entries.find(x=>x.id===form.dataset.id);
+      if(e) Object.assign(e, fields);
+    } else {
+      state.entries.push(Object.assign({id:uid('e')}, fields));
+    }
+  }
+
+  else if(kind==='recurring'){
+    const days = (data.days||'').split(/[,\s]+/).map(x=>parseInt(x,10)).filter(n=>n>=1&&n<=31);
+    const fields = {
+      direction:data.direction, category:data.category,
+      description:(data.description||'').trim(), planned:num(data.planned),
+      daysOfMonth: days.length?days:[1], everyNMonths:Math.max(1,parseInt(data.everyNMonths,10)||1),
+      startDate:data.startDate||todayYmd(), endDate:data.endDate||null,
+      person:data.person||null, active: data.active==='on',
+    };
+    if(form.dataset.id){ const r=state.recurring.find(x=>x.id===form.dataset.id); if(r) Object.assign(r,fields); }
+    else state.recurring.push(Object.assign({id:uid('r')}, fields));
+  }
+
+  else if(kind==='loan'){
+    const fields = {
+      name:(data.name||'Loan').trim(), currentBalance:numOrNull(data.currentBalance),
+      originalAmount:numOrNull(data.originalAmount), monthlyPayment:num(data.monthlyPayment),
+      paymentDay:clamp(parseInt(data.paymentDay,10)||1,1,31), interestRate:num(data.interestRate),
+      category:'c-carloan',
+    };
+    let loan;
+    if(form.dataset.id){ loan=state.loans.find(x=>x.id===form.dataset.id); if(loan) Object.assign(loan,fields); }
+    else { loan=Object.assign({id:uid('l'),linkedRecurringId:null}, fields); state.loans.push(loan); }
+    syncLinkedRecurring(loan, data.addToTimeline==='on', 'c-carloan', loan.name+' payment');
+  }
+
+  else if(kind==='card'){
+    const fields = {
+      name:(data.name||'Card').trim(), balance:num(data.balance), limit:num(data.limit),
+      monthlyPayment:numOrNull(data.monthlyPayment), paymentDay:clamp(parseInt(data.paymentDay,10)||25,1,31),
+    };
+    let card;
+    if(form.dataset.id){ card=state.cards.find(x=>x.id===form.dataset.id); if(card) Object.assign(card,fields); }
+    else { card=Object.assign({id:uid('cc'),linkedRecurringId:null}, fields); state.cards.push(card); }
+    syncLinkedRecurring(card, data.addToTimeline==='on' && card.monthlyPayment>0, 'c-card', card.name+' payment');
+  }
+
+  else if(kind==='goal'){
+    const fields = {name:(data.name||'Goal').trim(), targetAmount:num(data.targetAmount)};
+    if(form.dataset.id){ const g=state.goals.find(x=>x.id===form.dataset.id); if(g) Object.assign(g,fields); }
+    else state.goals.push(Object.assign({id:uid('g')}, fields));
+  }
+
+  else if(kind==='settings'){
+    state.settings.anchorBalance = num(data.anchorBalance);
+    state.settings.anchorDate = data.anchorDate||state.settings.anchorDate;
+    state.settings.people = [(data.p1||'Me').trim(), (data.p2||'Partner').trim()];
+    state.settings.horizonMonths = clamp(parseInt(data.horizonMonths,10)||36,6,120);
+  }
+
+  else if(kind==='category'){
+    const fields = {name:(data.name||'Category').trim(), color:data.color||PALETTE[0]};
+    if(form.dataset.id){ const c=state.categories.find(x=>x.id===form.dataset.id); if(c) Object.assign(c,fields); }
+    else state.categories.push(Object.assign({id:uid('c')}, fields));
+    save(); settingsForm(); render(); return;   // stay in settings
+  }
+
+  save(); closeModal(); render();
+}
+
+function setOverride(rid, date, patch){
+  const key = rid+'::'+date;
+  state.overrides[key] = Object.assign({}, state.overrides[key], patch);
+}
+
+// keep a loan/card's monthly payment mirrored to a recurring timeline entry
+function syncLinkedRecurring(owner, wanted, catId, desc){
+  if(wanted){
+    if(owner.linkedRecurringId){
+      const r = state.recurring.find(x=>x.id===owner.linkedRecurringId);
+      if(r){ r.planned=num(owner.monthlyPayment); r.daysOfMonth=[owner.paymentDay]; r.description=desc; r.category=catId; }
+      else owner.linkedRecurringId=null;
+    }
+    if(!owner.linkedRecurringId){
+      const r = {id:uid('r'), direction:'out', category:catId, description:desc,
+        planned:num(owner.monthlyPayment), person:null, daysOfMonth:[owner.paymentDay||1],
+        everyNMonths:1, startDate:todayYmd(), endDate:null, active:true};
+      state.recurring.push(r); owner.linkedRecurringId = r.id;
+    }
+  } else if(owner.linkedRecurringId){
+    state.recurring = state.recurring.filter(x=>x.id!==owner.linkedRecurringId);
+    owner.linkedRecurringId = null;
+  }
+}
+
+/* ============================================================================
+   EVENTS
+   ============================================================================ */
+document.addEventListener('click', e=>{
+  if(e.target.id==='scrim'){ closeModal(); return; }
+  const t = e.target.closest('[data-act],[data-tab],[data-range],[data-edit],[data-quick],[data-edit-recurring],[data-edit-loan],[data-edit-card],[data-edit-goal]');
+  if(!t) return;
+
+  if(t.dataset.tab){ ui.tab=t.dataset.tab; saveUi(); render(); return; }
+  if(t.dataset.range){ ui.range = t.dataset.range==='all'?'all':parseInt(t.dataset.range,10); saveUi(); render(); return; }
+
+  if(t.dataset.edit){ const it = buildItems().items.find(x=>x.id===t.dataset.edit); if(it) entryForm(it); return; }
+  if(t.dataset.quick!==undefined && t.hasAttribute('data-quick')){ e.stopPropagation(); quickActual(t.dataset.quick); return; }
+  if(t.dataset.editRecurring){ recurringForm(state.recurring.find(x=>x.id===t.dataset.editRecurring)); return; }
+  if(t.dataset.editLoan){ loanForm(state.loans.find(x=>x.id===t.dataset.editLoan)); return; }
+  if(t.dataset.editCard){ cardForm(state.cards.find(x=>x.id===t.dataset.editCard)); return; }
+  if(t.dataset.editGoal){ goalForm(state.goals.find(x=>x.id===t.dataset.editGoal)); return; }
+
+  const act = t.dataset.act;
+  switch(act){
+    case 'quick-add': case 'add-entry': entryForm(null); break;
+    case 'add-recurring': recurringForm(null); break;
+    case 'add-loan': loanForm(null); break;
+    case 'add-card': cardForm(null); break;
+    case 'add-goal': goalForm(null); break;
+    case 'open-settings': settingsForm(); break;
+    case 'back-settings': settingsForm(); break;
+    case 'open-filters': filterSheet(); break;
+    case 'close-modal': closeModal(); break;
+    case 'add-cat': categoryForm(null); break;
+    case 'edit-cat': categoryForm(state.categories.find(x=>x.id===t.dataset.id)); break;
+    case 'del-cat': delCategory(t.dataset.id); break;
+
+    case 'del-entry': delEntry(t.dataset.id, t.dataset.occ==='1', t.dataset.rid); break;
+    case 'del-recurring': if(confirm('Delete this whole recurring series? Past one-off edits remain.')){ state.recurring=state.recurring.filter(x=>x.id!==t.dataset.id); save(); closeModal(); render(); } break;
+    case 'del-loan': delOwner('loans', t.dataset.id); break;
+    case 'del-card': delOwner('cards', t.dataset.id); break;
+    case 'del-goal': state.goals=state.goals.filter(x=>x.id!==t.dataset.id); save(); closeModal(); render(); break;
+
+    case 'export': doExport(); break;
+    case 'import': doImport(); break;
+    case 'clear-data': if(confirm('Erase ALL data and start over? This cannot be undone.')){ localStorage.removeItem(LS_KEY); load(); closeModal(); render(); } break;
+  }
+});
+
+document.addEventListener('submit', e=>{ if(e.target.matches('form[data-kind]')){ e.preventDefault(); handleSubmit(e.target); } });
+
+document.addEventListener('input', e=>{
+  if(e.target.dataset.act==='search'){ ui.search=e.target.value; saveUi();
+    const built=buildItems(); renderTimeline($('#view'),built);
+    const s=$('#view .search'); if(s){ s.focus(); s.setSelectionRange(s.value.length,s.value.length); } }
+});
+document.addEventListener('change', e=>{
+  if(e.target.dataset.act==='toggle-past'){ ui.showPast=e.target.checked; saveUi(); render(); }
+  if(e.target.dataset.act==='toggle-detail'){ state.settings.detailedBalances=e.target.checked; save(); render(); }
+});
+
+function quickActual(id){
+  const it = buildItems().items.find(x=>x.id===id); if(!it) return;
+  if(it.source==='recurring'){ const [rid,date]=id.split('::'); setOverride(rid,date,{actual:it.planned}); }
+  else { const e=state.entries.find(x=>x.id===id); if(e) e.actual=it.planned; }
+  save(); render();
+}
+function delEntry(id, occ, rid){
+  if(occ){ const date=id.split('::')[1]; setOverride(rid,date,{skipped:true}); }
+  else state.entries=state.entries.filter(x=>x.id!==id);
+  save(); closeModal(); render();
+}
+function delOwner(coll, id){
+  const owner = state[coll].find(x=>x.id===id);
+  if(owner && owner.linkedRecurringId && confirm('Also remove its monthly payment from the timeline?'))
+    state.recurring = state.recurring.filter(x=>x.id!==owner.linkedRecurringId);
+  state[coll] = state[coll].filter(x=>x.id!==id);
+  save(); closeModal(); render();
+}
+function delCategory(id){
+  if(state.categories.length<=1) return;
+  const used = state.entries.some(e=>e.category===id) || state.recurring.some(r=>r.category===id);
+  if(used && !confirm('This category is in use. Items will fall back to “Other”. Delete anyway?')) return;
+  state.categories = state.categories.filter(c=>c.id!==id);
+  const fallback = state.categories[0].id;
+  state.entries.forEach(e=>{ if(e.category===id) e.category=fallback; });
+  state.recurring.forEach(r=>{ if(r.category===id) r.category=fallback; });
+  save(); settingsForm(); render();
+}
+
+/* ---------- export / import --------------------------------------------- */
+function doExport(){
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download = 'our-budget-'+todayYmd()+'.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function doImport(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange=()=>{ const f=inp.files[0]; if(!f) return; const rd=new FileReader();
+    rd.onload=()=>{ try{ const s=JSON.parse(rd.result); if(!s.settings) throw 0;
+      if(confirm('Replace all current data with this backup?')){ state=s; save(); closeModal(); render(); } }
+      catch(err){ alert('That file is not a valid backup.'); } };
+    rd.readAsText(f); };
+  inp.click();
+}
+
+/* ============================================================================
+   INIT
+   ============================================================================ */
+load();
+render();
+</script>
+</body>
+</html>
