@@ -878,20 +878,22 @@ function renderCards(v){
     const bal=num(c.balance), lim=num(c.limit), avail=lim-bal;
     const util = lim>0 ? clamp(bal/lim,0,1) : 0;
     const pct = Math.round(util*100);
+    const ifTxt  = (num(c.ifAmount)>0 && c.ifDate) ? `${fmtMoney(num(c.ifAmount))} by ${fmtDateShort(c.ifDate)}` : '—';
+    const instTxt = num(c.instMonthly)>0 ? `${fmtMoney(num(c.instMonthly))}/mo` : '—';
     return `<div class="row-card" data-edit-card="${c.id}">
       <div class="rc-top">${tagHtml('c-card')}<span class="name">${esc(c.name)}</span></div>
       <div class="rc-grid">
-        <div class="cell"><div class="lab">Balance</div><div class="val" style="color:var(--out)">${fmtMoney(bal)}</div></div>
-        <div class="cell"><div class="lab">Available</div><div class="val" style="color:var(--in)">${fmtMoney(avail)}</div></div>
-        <div class="cell"><div class="lab">Limit</div><div class="val">${fmtMoney(lim)}</div></div>
-        <div class="cell"><div class="lab">Monthly</div><div class="val">${c.monthlyPayment?fmtMoney(num(c.monthlyPayment)):'—'}</div></div>
+        <div class="cell"><div class="lab">Owed</div><div class="val" style="color:var(--out)">${fmtMoney(bal)}</div></div>
+        <div class="cell"><div class="lab">Available (float)</div><div class="val" style="color:var(--in)">${fmtMoney(avail)}</div></div>
+        <div class="cell"><div class="lab">Interest-free</div><div class="val ${ifTxt==='—'?'muted':''}">${ifTxt}</div></div>
+        <div class="cell"><div class="lab">Installment</div><div class="val ${instTxt==='—'?'muted':''}">${instTxt}</div></div>
       </div>
       <div class="progress ${pct>=70?'warn':''}"><i style="width:${pct}%"></i></div>
-      <div class="hint" style="margin:7px 0 0">${pct}% of limit used</div>
+      <div class="hint" style="margin:7px 0 0">${pct}% of ${fmtMoney(lim)} limit used</div>
     </div>`;
   }).join('');
   v.innerHTML = `<div class="vhead"><h2>Credit cards</h2><button class="btn primary sm" data-act="add-card">＋ Card</button></div>
-    <div class="hint" style="margin:0 2px 12px">This tab tracks balance, limit and available credit. The monthly payment also shows on your Timeline.</div>
+    <div class="hint" style="margin:0 2px 12px">The card is delayed cash-out: only its <b>payments</b> hit your forecast. Set an interest-free lump + an installment and they show on the Timeline; your unused limit is “float”.</div>
     <div class="list">${list}</div>`;
 }
 
@@ -1055,17 +1057,24 @@ function loanForm(l){
 function cardForm(c){
   openModal(`
     <h3>${c?'Edit card':'New credit card'}</h3>
+    <div class="hint">A card delays cash-out — your bank only moves when you <b>pay</b> it. Set the payments below and they’ll appear on your timeline and chart.</div>
     <form data-kind="card" data-id="${c?esc(c.id):''}">
-      <label class="fld"><span>Card name</span><input name="name" value="${esc(c?.name)}" placeholder="e.g. TBC Visa" autocomplete="off"></label>
+      <label class="fld"><span>Card name</span><input name="name" value="${esc(c?.name)}" placeholder="e.g. BoG card" autocomplete="off"></label>
       <div class="fld row2">
-        <div><label>Current balance (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="balance" value="${c?c.balance:''}" placeholder="owed now"></div>
-        <div><label>Credit limit (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="limit" value="${c?c.limit:''}" placeholder="0"></div>
+        <div><label>Balance owed now (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="balance" value="${c&&c.balance!=null?c.balance:''}" placeholder="e.g. 10000"></div>
+        <div><label>Credit limit (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="limit" value="${c&&c.limit!=null?c.limit:''}" placeholder="e.g. 20000"></div>
+      </div>
+      <div class="section-title" style="margin:8px 2px 10px">Repayment plan</div>
+      <div class="fld row2">
+        <div><label>Interest-free amount (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="ifAmount" value="${c&&c.ifAmount!=null?c.ifAmount:''}" placeholder="e.g. 7000"></div>
+        <div><label>Pay it by</label><input type="date" name="ifDate" value="${c?.ifDate||''}"></div>
       </div>
       <div class="fld row2">
-        <div><label>Monthly payment (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="monthlyPayment" value="${c?c.monthlyPayment||'':''}" placeholder="optional"></div>
-        <div><label>Payment day</label><input type="number" min="1" max="31" name="paymentDay" value="${c?c.paymentDay||25:25}"></div>
+        <div><label>Installment / month (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="instMonthly" value="${c&&c.instMonthly!=null?c.instMonthly:''}" placeholder="e.g. 700"></div>
+        <div><label>Payment day</label><input type="number" min="1" max="31" name="instDay" value="${c?c.instDay||10:10}"></div>
       </div>
-      <label class="chk"><input type="checkbox" name="addToTimeline" ${c?(c.linkedRecurringId?'checked':''):''}> Show monthly payment on timeline</label>
+      <div class="hint">The interest-free part is one payment by its date. The installment repays the rest (balance − interest-free) at this monthly amount until it’s gone. Leave a part blank if it doesn’t apply.</div>
+      <label class="chk"><input type="checkbox" name="addToTimeline" ${c?((c.linkedRecurringId||c.linkedEntryId)?'checked':''):'checked'}> Show these payments on my timeline</label>
       <div class="modal-actions">
         ${c?`<button type="button" class="btn danger" data-act="del-card" data-id="${esc(c.id)}">Delete</button>`:''}
         <button type="submit" class="btn primary">Save</button>
@@ -1212,12 +1221,13 @@ function handleSubmit(form){
   else if(kind==='card'){
     const fields = {
       name:(data.name||'Card').trim(), balance:num(data.balance), limit:num(data.limit),
-      monthlyPayment:numOrNull(data.monthlyPayment), paymentDay:clamp(parseInt(data.paymentDay,10)||25,1,31),
+      ifAmount:numOrNull(data.ifAmount), ifDate:data.ifDate||null,
+      instMonthly:numOrNull(data.instMonthly), instDay:clamp(parseInt(data.instDay,10)||10,1,31),
     };
     let card;
     if(form.dataset.id){ card=state.cards.find(x=>x.id===form.dataset.id); if(card) Object.assign(card,fields); }
-    else { card=Object.assign({id:uid('cc'),linkedRecurringId:null}, fields); state.cards.push(card); }
-    syncLinkedRecurring(card, data.addToTimeline==='on' && card.monthlyPayment>0, 'c-card', card.name+' payment');
+    else { card=Object.assign({id:uid('cc'),linkedRecurringId:null,linkedEntryId:null}, fields); state.cards.push(card); }
+    syncCardPayments(card, data.addToTimeline==='on');
   }
 
   else if(kind==='goal'){
@@ -1251,6 +1261,37 @@ function handleSubmit(form){
 function setOverride(rid, date, patch){
   const key = rid+'::'+date;
   state.overrides[key] = Object.assign({}, state.overrides[key], patch);
+}
+
+// credit card → up to two timeline items: an interest-free lump (one-off) + an installment (recurring)
+function syncCardPayments(card, show){
+  // interest-free lump = one-off entry on its due date
+  const wantIF = show && num(card.ifAmount)>0 && card.ifDate;
+  let e = card.linkedEntryId && state.entries.find(x=>x.id===card.linkedEntryId);
+  if(wantIF){
+    const ef = {direction:'out', category:'c-card', date:card.ifDate, planned:num(card.ifAmount),
+      actual:(e?e.actual:null), person:null, description:card.name+' — interest-free'};
+    if(e) Object.assign(e, ef);
+    else { e=Object.assign({id:uid('e')}, ef); state.entries.push(e); card.linkedEntryId=e.id; }
+  } else if(card.linkedEntryId){
+    state.entries = state.entries.filter(x=>x.id!==card.linkedEntryId); card.linkedEntryId=null;
+  }
+  // installment = recurring until the remaining balance (balance − interest-free) is repaid
+  const remaining = Math.max(0, num(card.balance) - num(card.ifAmount));
+  const months = num(card.instMonthly)>0 ? Math.ceil(remaining/num(card.instMonthly)) : 0;
+  const wantInst = show && num(card.instMonthly)>0 && months>0;
+  if(wantInst){
+    const startD = ymd(startOfMonth(today()));
+    const endD = ymd(endOfMonth(addMonths(today(), months-1)));
+    const rf = {direction:'out', category:'c-card', description:card.name+' installment',
+      planned:num(card.instMonthly), person:null, daysOfMonth:[card.instDay||10],
+      everyNMonths:1, startDate:startD, endDate:endD, active:true};
+    let r = card.linkedRecurringId && state.recurring.find(x=>x.id===card.linkedRecurringId);
+    if(r) Object.assign(r, rf);
+    else { r=Object.assign({id:uid('r')}, rf); state.recurring.push(r); card.linkedRecurringId=r.id; }
+  } else if(card.linkedRecurringId){
+    state.recurring = state.recurring.filter(x=>x.id!==card.linkedRecurringId); card.linkedRecurringId=null;
+  }
 }
 
 // keep a loan/card's monthly payment mirrored to a recurring timeline entry
@@ -1367,8 +1408,10 @@ function delEntry(id, occ, rid){
 }
 function delOwner(coll, id){
   const owner = state[coll].find(x=>x.id===id);
-  if(owner && owner.linkedRecurringId && confirm('Also remove its monthly payment from the timeline?'))
-    state.recurring = state.recurring.filter(x=>x.id!==owner.linkedRecurringId);
+  if(owner && (owner.linkedRecurringId||owner.linkedEntryId) && confirm('Also remove its payments from the timeline?')){
+    if(owner.linkedRecurringId) state.recurring = state.recurring.filter(x=>x.id!==owner.linkedRecurringId);
+    if(owner.linkedEntryId) state.entries = state.entries.filter(x=>x.id!==owner.linkedEntryId);
+  }
   state[coll] = state[coll].filter(x=>x.id!==id);
   save(); closeModal(); render();
 }
