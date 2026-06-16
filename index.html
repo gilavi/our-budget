@@ -149,6 +149,9 @@ svg{display:block}
 .cf-chart{width:100%;height:auto;display:block;touch-action:pan-y;overflow:visible}
 .cf-area{fill:color-mix(in srgb,var(--accent) 13%,transparent)}
 .cf-line{fill:none;stroke:var(--accent);stroke-width:2}
+.cf-grid{stroke:var(--line-2);stroke-width:1}
+.cf-gap{fill:color-mix(in srgb,var(--in) 18%,transparent)}
+.cf-safe{fill:none;stroke:var(--in);stroke-width:1.6;stroke-dasharray:5 3}
 .cf-past{fill:var(--panel-2);opacity:.7}
 .cf-negzone{fill:color-mix(in srgb,var(--out) 9%,transparent)}
 .cf-zero{stroke:var(--faint);stroke-width:1;stroke-dasharray:3 3}
@@ -522,6 +525,31 @@ function goalDate(items, target){
   return {date:pts[idx].date};
 }
 
+/* ---------- goal reservations (money actively set aside) ----------------- */
+function monthsElapsed(fromYmd, dateObj){
+  const a = parseYmd(fromYmd);
+  let m = (dateObj.getFullYear()-a.getFullYear())*12 + (dateObj.getMonth()-a.getMonth());
+  if(dateObj.getDate() < a.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+// amount set aside for a goal by a given date (capped at target)
+function reservedAt(goal, dateObj){
+  const mo = num(goal.reserveMonthly); if(mo<=0) return 0;
+  const start = goal.reserveStart || ymd(startOfMonth(today()));
+  if(dateObj < parseYmd(start)) return 0;
+  const contribs = monthsElapsed(start, dateObj) + 1;
+  return Math.min(num(goal.targetAmount), mo*contribs);
+}
+function totalReservedAt(dateObj){ let s=0; for(const g of state.goals) s += reservedAt(g, dateObj); return s; }
+function goalReserveInfo(goal){
+  const mo = num(goal.reserveMonthly); if(mo<=0) return {reserving:false};
+  const target = num(goal.targetAmount);
+  const savedNow = reservedAt(goal, today());
+  const remaining = Math.max(0, target-savedNow);
+  const fundedDate = remaining<=0 ? today() : addMonths(today(), Math.ceil(remaining/mo));
+  return {reserving:true, savedNow, remaining, fundedDate, progress: target>0?clamp(savedNow/target,0,1):0};
+}
+
 /* ---------- loan / card maths ------------------------------------------- */
 function loanInfo(loan){
   const bal = numOrNull(loan.currentBalance), pay = num(loan.monthlyPayment);
@@ -581,17 +609,16 @@ function renderDashboard(built){
 
   let goalBar = '';
   if(state.goals.length){
-    const ranked = state.goals.map(g=>({g, r:goalDate(items, num(g.targetAmount))}))
-      .sort((a,b)=>{
-        const av = a.r.now?0:(a.r.date?a.r.date.getTime():Infinity);
-        const bv = b.r.now?0:(b.r.date?b.r.date.getTime():Infinity);
-        return av-bv;
-      });
+    const ranked = state.goals.map(g=>{
+      const ri = goalReserveInfo(g);
+      if(ri.reserving) return {g, when: ri.remaining<=0?'Fully funded':`Funded by ${fmtMonShort(ri.fundedDate)}`, ts: ri.remaining<=0?0:ri.fundedDate.getTime()};
+      const r = goalDate(items, num(g.targetAmount));
+      return {g, when: r.now?'Affordable now':(r.date?`Affordable from ${fmtMonShort(r.date)}`:'Beyond forecast horizon'), ts: r.now?0:(r.date?r.date.getTime():Infinity)};
+    }).sort((a,b)=>a.ts-b.ts);
     const top = ranked[0];
-    const when = top.r.now ? 'Affordable now' : (top.r.date ? `Affordable from ${fmtMonShort(top.r.date)}` : 'Beyond forecast horizon');
     goalBar = `<div class="goalbar" data-tab="goals">
       <span class="gi">${icon('goals',20)}</span>
-      <div class="gt"><div class="gn">${esc(top.g.name)} · ${fmtMoney(num(top.g.targetAmount))}</div><div class="gw">${esc(when)}</div></div>
+      <div class="gt"><div class="gn">${esc(top.g.name)} · ${fmtMoney(num(top.g.targetAmount))}</div><div class="gw">${esc(top.when)}</div></div>
       <span class="chev">${icon('chev',18)}</span>
     </div>`;
   }
@@ -645,7 +672,7 @@ function chartCard(){
     <div class="cf-head"><span class="t">Cashflow forecast</span>
       <button class="cf-toggle" data-act="toggle-chart">${open?'Hide':'Show'}${icon('chev',14)}</button></div>
     ${open?`<div class="cf-wrap" id="cf-wrap"></div>
-      <div class="cf-hint">Line = forecast balance · vertical line = today · dashed = goal targets. Tap or hover to read any date.</div>`:''}
+      <div class="cf-hint">Solid line = forecast balance. Set aside for a goal and a dashed “safe to spend” line appears — the gap is money reserved. Tap or hover to read any date.</div>`:''}
   </div>`;
 }
 
@@ -653,8 +680,8 @@ function drawCashflow(){
   const wrap = document.getElementById('cf-wrap');
   if(!wrap || !lastBuilt) return;
   const W = Math.max(260, Math.round(wrap.clientWidth));
-  const H = W<430 ? 184 : 210;
-  const padL=10, padR=12, padT=16, padB=22;
+  const H = W<430 ? 192 : 216;
+  const padL=48, padR=12, padT=16, padB=22;
   const fromD = startOfMonth(today());
   const monthsAhead = ui.range==='all' ? 24 : ui.range;
   const toD = endOfMonth(addMonths(today(), monthsAhead-1));
@@ -664,27 +691,42 @@ function drawCashflow(){
   const fromTs = parseYmd(fromYmd).getTime();
   const toTs = Math.max(parseYmd(toYmd).getTime(), fromTs+86400000);
 
-  const goals = state.goals.map(g=>({name:g.name, target:num(g.targetAmount), r:goalDate(items,num(g.targetAmount))})).filter(g=>g.target>0);
-  let minBal=0, maxBal=0;
-  for(const p of pts){ if(p.bal<minBal) minBal=p.bal; if(p.bal>maxBal) maxBal=p.bal; }
-  let goalMax=0; for(const g of goals) goalMax=Math.max(goalMax,g.target);
-  const capMax = maxBal>0 ? maxBal*2.2 : (goalMax||1000);
-  let yMin = Math.min(0, minBal), yMax = Math.max(maxBal, Math.min(goalMax, capMax));
+  const hasReserve = state.goals.some(g=>num(g.reserveMonthly)>0);
+  const rows = pts.map(p=>{ const d=parseYmd(p.date); const res=hasReserve?totalReservedAt(d):0; return {date:p.date, bal:p.bal, safe:p.bal-res}; });
+
+  let minV=0, maxV=0;
+  for(const r of rows){ minV=Math.min(minV,r.bal,r.safe); maxV=Math.max(maxV,r.bal,r.safe); }
+  let yMin = Math.min(0, minV), yMax = maxV;
   if(yMax<=yMin) yMax = yMin+1000;
-  const span = yMax-yMin;
-  yMax += span*0.14; if(yMin<0) yMin -= span*0.06;
+  const span = yMax-yMin; yMax += span*0.12; if(yMin<0) yMin -= span*0.06;
 
   const plotW=W-padL-padR, plotH=H-padT-padB, bottom=H-padB;
   const X = ts => padL + (ts-fromTs)/(toTs-fromTs)*plotW;
   const Y = v => padT + (yMax-v)/(yMax-yMin)*plotH;
-  const xy = pts.map(p=>({x:+X(parseYmd(p.date).getTime()).toFixed(1), y:+Y(p.bal).toFixed(1), date:p.date, bal:p.bal}));
-  chartPts = xy; chartDim = {W,H};
+  const bx = rows.map(r=>({x:+X(parseYmd(r.date).getTime()).toFixed(1), yb:+Y(r.bal).toFixed(1), ys:+Y(r.safe).toFixed(1), date:r.date, bal:r.bal, safe:r.safe}));
+  chartPts = bx.map(p=>({x:p.x, y:p.yb, date:p.date, bal:p.bal, safe:p.safe})); chartDim = {W,H};
 
-  const line = xy.map((p,i)=>(i?'L':'M')+p.x+' '+p.y).join(' ');
-  const area = `${line} L ${xy[xy.length-1].x} ${bottom} L ${xy[0].x} ${bottom} Z`;
+  const balLine = bx.map((p,i)=>(i?'L':'M')+p.x+' '+p.yb).join(' ');
+  const safeBaseLine = bx.map((p,i)=>(i?'L':'M')+p.x+' '+p.ys).join(' ');
+  // accent area fills under the "safe to spend" line; the gap above it (reserved) is green
+  const balArea = `${safeBaseLine} L ${bx[bx.length-1].x} ${bottom} L ${bx[0].x} ${bottom} Z`;
+  let safeEls='';
+  if(hasReserve){
+    const gap = `${balLine} L ${bx[bx.length-1].x} ${bx[bx.length-1].ys} ` + bx.slice().reverse().map(p=>'L '+p.x+' '+p.ys).join(' ') + ' Z';
+    safeEls = `<path class="cf-gap" d="${gap}"/><path class="cf-safe" d="${safeBaseLine}"/>`;
+  }
   const todayX = X(Math.max(fromTs, Math.min(toTs, today().getTime())));
   const zeroY = Y(0);
 
+  // gridlines + y labels at round steps
+  const niceStep = v => { const raw=v/3||1; const p=Math.pow(10,Math.floor(Math.log10(raw))); const m=raw/p; const s=m<1.5?1:m<3?2:m<7?5:10; return s*p; };
+  const step = niceStep(yMax-yMin);
+  let grid='', ylabs='';
+  for(let gv=Math.ceil(yMin/step)*step; gv<=yMax; gv+=step){
+    const gy=Y(gv).toFixed(1);
+    grid += `<line class="cf-grid" x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}"/>`;
+    ylabs += `<text class="cf-axis" x="${padL-6}" y="${(+gy+3).toFixed(1)}" text-anchor="end">${fmtMoney(gv)}</text>`;
+  }
   let ticks='';
   const stepMo = monthsAhead>12?3:(monthsAhead>6?2:1);
   let c = new Date(fromD.getFullYear(), fromD.getMonth(), 1), guard=0;
@@ -693,27 +735,17 @@ function drawCashflow(){
     if(tx>=padL-1 && tx<=W-padR+1) ticks+=`<text class="cf-axis" x="${tx.toFixed(1)}" y="${H-6}" text-anchor="middle">${MON[c.getMonth()]}</text>`;
     c = addMonths(c, stepMo);
   }
-  let ylabs = `<text class="cf-axis" x="${W-padR}" y="${padT-5}" text-anchor="end">${fmtMoney(yMax)}</text>`;
-  if(yMin<0) ylabs += `<text class="cf-axis" x="${padL}" y="${(zeroY-3).toFixed(1)}">${CUR}0</text>`;
-
-  let goalEls='';
-  for(const g of goals){
-    if(g.target>yMax || g.target<yMin) continue;
-    const gy = Y(g.target).toFixed(1);
-    goalEls += `<line class="cf-goal" x1="${padL}" y1="${gy}" x2="${W-padR}" y2="${gy}"/>`;
-    goalEls += `<text class="cf-glabel" x="${W-padR}" y="${(+gy-3).toFixed(1)}" text-anchor="end">${esc(g.name)} · ${fmtMoney(g.target)}</text>`;
-    if(g.r.date){ const gx=X(parseYmd(ymd(g.r.date)).getTime()); if(gx>=padL && gx<=W-padR) goalEls += `<circle class="cf-goaldot" cx="${gx.toFixed(1)}" cy="${gy}" r="3.6"/>`; }
-  }
 
   wrap.innerHTML = `<svg class="cf-chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     ${yMin<0?`<rect class="cf-negzone" x="${padL}" y="${zeroY.toFixed(1)}" width="${plotW}" height="${(bottom-zeroY).toFixed(1)}"/>`:''}
-    ${todayX>padL?`<rect class="cf-past" x="${padL}" y="${padT}" width="${(todayX-padL).toFixed(1)}" height="${plotH}"/>`:''}
-    <path class="cf-area" d="${area}"/>
-    <path class="cf-line" d="${line}"/>
+    ${grid}
+    <path class="cf-area" d="${balArea}"/>
+    ${safeEls}
+    <path class="cf-line" d="${balLine}"/>
     ${yMin<0?`<line class="cf-zero" x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}"/>`:''}
     <line class="cf-today" x1="${todayX.toFixed(1)}" y1="${padT}" x2="${todayX.toFixed(1)}" y2="${bottom}"/>
     <text class="cf-todaylab" x="${todayX.toFixed(1)}" y="${padT-5}" text-anchor="middle">today</text>
-    ${goalEls}${ticks}${ylabs}
+    ${ticks}${ylabs}
     <g class="cf-cursor" style="display:none"><line y1="${padT}" y2="${bottom}"/><circle r="4"/></g>
   </svg><div class="cf-tip" style="display:none"></div>`;
 }
@@ -907,19 +939,29 @@ function renderGoals(v, built){
   const todayBal = projectedAt(items, today());
   const list = state.goals.map(g=>{
     const target = num(g.targetAmount);
-    const r = goalDate(items, target);
-    const answer = r.now ? 'You can afford this now'
-      : (r.date ? `Affordable from ${fmtMonShort(r.date)}` : 'Not affordable within your forecast yet');
-    const pct = target>0 ? clamp(todayBal/target,0,1) : 0;
+    const ri = goalReserveInfo(g);
+    let answer, color, pct, sub;
+    if(ri.reserving){
+      answer = ri.remaining<=0 ? '✓ Fully funded' : `Funded by ${fmtMonShort(ri.fundedDate)}`;
+      color = 'var(--in)';
+      pct = Math.round(ri.progress*100);
+      sub = `Set aside ${fmtMoney(ri.savedNow)} of ${fmtMoney(target)} · saving ${fmtMoney(num(g.reserveMonthly))}/mo`;
+    } else {
+      const r = goalDate(items, target);
+      answer = r.now ? 'Affordable now' : (r.date ? `Affordable from ${fmtMonShort(r.date)}` : 'Not affordable within forecast yet');
+      color = r.date ? 'var(--in)' : 'var(--warn)';
+      pct = target>0 ? Math.round(clamp(todayBal/target,0,1)*100) : 0;
+      sub = `Forecast balance today ${fmtMoney(todayBal)} · ${pct}% of ${fmtMoney(target)}`;
+    }
     return `<div class="row-card" data-edit-goal="${g.id}">
       <div class="rc-top"><span class="name">${esc(g.name)}</span><span class="r-amt" style="color:var(--ink)">${fmtMoney(target)}</span></div>
-      <div class="goal-answer" style="color:${r.date?'var(--in)':'var(--warn)'}">${answer}</div>
-      <div class="progress"><i style="width:${Math.round(pct*100)}%"></i></div>
-      <div class="hint" style="margin:8px 0 0">Forecast balance today ${fmtMoney(todayBal)} · ${Math.round(pct*100)}% of ${fmtMoney(target)}</div>
+      <div class="goal-answer" style="color:${color}">${answer}</div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <div class="hint" style="margin:8px 0 0">${sub}</div>
     </div>`;
   }).join('');
   v.innerHTML = `<div class="vhead"><h2>Goals</h2><button class="btn primary sm" data-act="add-goal">＋ Goal</button></div>
-    <div class="hint" style="margin:0 2px 12px">Add a goal and the app tells you when you can afford it — the first date your forecast covers it and stays positive afterward. It updates automatically as you edit your timeline, so there’s nothing else to do.</div>
+    <div class="hint" style="margin:0 2px 12px">Two ways to use a goal: leave “set aside” blank and the app tells you when your forecast can <b>afford</b> it; or add a monthly “set aside” to actively <b>save</b> toward it — the chart then shows the gap you’re reserving.</div>
     <div class="list">${list}</div>`;
 }
 
@@ -1089,6 +1131,11 @@ function goalForm(g){
     <form data-kind="goal" data-id="${g?esc(g.id):''}">
       <label class="fld"><span>Goal</span><input name="name" value="${esc(g?.name)}" placeholder="e.g. New car deposit" autocomplete="off"></label>
       <label class="fld"><span>Target amount (${CUR})</span><input type="number" inputmode="decimal" step="0.01" name="targetAmount" value="${g?g.targetAmount:''}" placeholder="20000"></label>
+      <div class="fld row2">
+        <div><label>Set aside / month (${CUR})</label><input type="number" inputmode="decimal" step="0.01" name="reserveMonthly" value="${g&&g.reserveMonthly!=null?g.reserveMonthly:''}" placeholder="optional"></div>
+        <div><label>Starting from</label><input type="date" name="reserveStart" value="${g?.reserveStart||ymd(startOfMonth(today()))}"></div>
+      </div>
+      <div class="hint">Add a monthly amount to actively save toward this goal. The chart then shows a “safe to spend” line — the gap below your balance is what you’ve set aside.</div>
       <div class="modal-actions">
         ${g?`<button type="button" class="btn danger" data-act="del-goal" data-id="${esc(g.id)}">Delete</button>`:''}
         <button type="submit" class="btn primary">Save</button>
@@ -1231,7 +1278,8 @@ function handleSubmit(form){
   }
 
   else if(kind==='goal'){
-    const fields = {name:(data.name||'Goal').trim(), targetAmount:num(data.targetAmount)};
+    const fields = {name:(data.name||'Goal').trim(), targetAmount:num(data.targetAmount),
+      reserveMonthly:numOrNull(data.reserveMonthly), reserveStart:data.reserveStart||ymd(startOfMonth(today()))};
     if(form.dataset.id){ const g=state.goals.find(x=>x.id===form.dataset.id); if(g) Object.assign(g,fields); }
     else state.goals.push(Object.assign({id:uid('g')}, fields));
   }
@@ -1387,7 +1435,8 @@ document.addEventListener('pointermove', e=>{
   ln.setAttribute('x1',best.x); ln.setAttribute('x2',best.x);
   ci.setAttribute('cx',best.x); ci.setAttribute('cy',best.y);
   const tip = svg.parentNode.querySelector('.cf-tip');
-  tip.style.display=''; tip.innerHTML = `${fmtMoney(best.bal)}<span class="d"> · ${fmtDateShort(best.date)}</span>`;
+  const showSafe = best.safe!=null && Math.abs(best.bal-best.safe)>=0.5;
+  tip.style.display=''; tip.innerHTML = `${fmtMoney(best.bal)}<span class="d"> · ${fmtDateShort(best.date)}</span>${showSafe?`<br>${fmtMoney(best.safe)}<span class="d"> free to spend</span>`:''}`;
   tip.style.left = (best.x*rect.width/chartDim.W)+'px';
   tip.style.top  = (best.y*rect.height/chartDim.H)+'px';
 });
