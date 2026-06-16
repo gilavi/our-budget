@@ -39,6 +39,8 @@ svg{display:block}
 .brand{flex:1;min-width:0}
 .brand h1{font-size:21px;letter-spacing:-.3px}
 .brand .sub{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.sync{border:0;background:transparent;font-size:12px;font-weight:600;padding:4px 8px;border-radius:8px;cursor:pointer;white-space:nowrap;flex:none}
+.sync.synced{color:var(--in)} .sync.saving{color:var(--muted)} .sync.readonly{color:var(--warn)} .sync.offline{color:var(--faint)} .sync.error{color:var(--out)}
 .icon-btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;box-shadow:var(--shadow);flex:none}
 .icon-btn svg{width:20px;height:20px}
 .icon-btn:active{transform:translateY(1px)}
@@ -267,6 +269,7 @@ svg{display:block}
       <h1>Our budget</h1>
       <span class="sub" id="brand-sub"></span>
     </div>
+    <button class="sync" id="sync" data-act="open-settings" title="Sync status" style="display:none"></button>
     <button class="icon-btn" data-act="quick-add" aria-label="Add entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <button class="icon-btn" data-act="open-settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   </div>
@@ -395,7 +398,7 @@ function defaultState(){
 function load(){
   try{
     const raw = localStorage.getItem(LS_KEY);
-    if(!raw){ state = defaultState(); save(); return; }
+    if(!raw){ state = defaultState(); saveLocal(); return; }
     const s = JSON.parse(raw);
     const d = defaultState();
     state = Object.assign({}, d, s);
@@ -410,14 +413,64 @@ function load(){
   }
   try{ const u = JSON.parse(localStorage.getItem(LS_KEY+'.ui')); if(u) ui = Object.assign(ui,u); }catch(e){}
 }
-let saveTimer;
+let saveTimer, cloudTimer;
+function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert('Could not save locally — storage may be full.'); } }
 function save(){
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(()=>{ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ alert('Could not save — storage may be full.'); } }, 120);
+  state.updatedAt = Date.now();
+  clearTimeout(saveTimer); saveTimer = setTimeout(saveLocal, 120);
+  clearTimeout(cloudTimer); cloudTimer = setTimeout(()=>cloudSave(state), 1200);
 }
 function saveUi(){ try{ localStorage.setItem(LS_KEY+'.ui', JSON.stringify(ui)); }catch(e){} }
 
 const catById = id => state.categories.find(c=>c.id===id) || {id, name:'Uncategorised', color:'#9aa1ab'};
+
+/* ============================================================================
+   CLOUD SYNC  — shared via a private GitHub gist (read = no auth, write = token)
+   ============================================================================ */
+const GIST_ID = '036802acefca9f298f5bee0ed4d6e2b3';
+const GIST_API = 'https://api.github.com/gists/' + GIST_ID;
+let cloudFile = 'ob.json', syncStatus = 'idle';
+const SYNC_TXT = { synced:'Synced', saving:'Saving…', readonly:'Sync: add token', offline:'Offline', error:'Sync error', idle:'' };
+const getToken = () => { try{ return localStorage.getItem(LS_KEY+'.token')||''; }catch(e){ return ''; } };
+function setSync(s){
+  syncStatus = s;
+  const el=document.getElementById('sync'); if(el){ el.textContent=SYNC_TXT[s]||''; el.className='sync '+s; el.style.display=SYNC_TXT[s]?'':'none'; }
+  const st=document.getElementById('sync-status-text'); if(st) st.textContent=SYNC_TXT[s]||'—';
+}
+async function cloudLoad(){
+  try{
+    const tok=getToken();
+    const r=await fetch(GIST_API,{headers: tok?{Authorization:'token '+tok}:{}, cache:'no-store'});
+    if(!r.ok) return null;
+    const files=(await r.json()).files||{}; const names=Object.keys(files);
+    if(!names.length) return null;
+    cloudFile=names[0];
+    let content=files[cloudFile].content;
+    if(files[cloudFile].truncated && files[cloudFile].raw_url) content=await (await fetch(files[cloudFile].raw_url)).text();
+    const data=JSON.parse(content);
+    return (data && data.settings) ? data : null;
+  }catch(e){ return null; }
+}
+async function cloudSave(data){
+  const tok=getToken();
+  if(!tok){ setSync('readonly'); return false; }
+  try{
+    setSync('saving');
+    const r=await fetch(GIST_API,{method:'PATCH', headers:{Authorization:'token '+tok,'Content-Type':'application/json'},
+      body:JSON.stringify({files:{[cloudFile]:{content:JSON.stringify(data)}}})});
+    setSync(r.ok?'synced':'error'); return r.ok;
+  }catch(e){ setSync('offline'); return false; }
+}
+async function syncNow(){
+  if(typeof navigator!=='undefined' && navigator.onLine===false){ setSync('offline'); return; }
+  const cloud=await cloudLoad();
+  if(cloud){
+    if((cloud.updatedAt||0) >= (state.updatedAt||0)){ state=cloud; saveLocal(); render(); setSync('synced'); }
+    else { await cloudSave(state); }
+  }else{
+    if(getToken()) await cloudSave(state); else setSync('readonly');
+  }
+}
 
 /* ============================================================================
    PROJECTION ENGINE  — the heart of the app
@@ -1181,6 +1234,14 @@ function settingsForm(){
       <label class="fld"><span>Forecast horizon (months)</span><input type="number" min="6" max="120" name="horizonMonths" value="${s.horizonMonths}"></label>
       <div class="modal-actions"><button type="submit" class="btn primary">Save settings</button></div>
     </form>
+    <div class="section-title">Sync &amp; sharing</div>
+    <div class="hint">Your budget syncs through a private GitHub gist — everyone with your link sees the same data. Reading needs nothing; to <b>save</b> changes from this device, paste a GitHub token with the <b>gist</b> permission (kept only on this device, never shared). Set it up first on the device that has your current data.</div>
+    <label class="fld"><span>GitHub token (this device only)</span><input type="password" id="sync-token" value="${esc(getToken())}" placeholder="github_pat_… / ghp_…" autocomplete="off"></label>
+    <div class="modal-actions" style="flex-wrap:wrap">
+      <button type="button" class="btn primary" data-act="save-token">Save &amp; sync</button>
+      <a class="btn" href="https://github.com/settings/tokens/new?scopes=gist&amp;description=our-budget" target="_blank" rel="noopener">Create token ↗</a>
+    </div>
+    <div class="hint">Status: <b id="sync-status-text">${SYNC_TXT[syncStatus]||'—'}</b></div>
     <div class="section-title">Categories</div>
     ${cats}
     <button type="button" class="btn sm" style="margin-top:10px" data-act="add-cat">＋ Add category</button>
@@ -1417,6 +1478,12 @@ document.addEventListener('click', e=>{
     case 'del-card': delOwner('cards', t.dataset.id); break;
     case 'del-goal': state.goals=state.goals.filter(x=>x.id!==t.dataset.id); save(); closeModal(); render(); break;
 
+    case 'save-token': {
+      const v=(document.getElementById('sync-token')?.value||'').trim();
+      try{ if(v) localStorage.setItem(LS_KEY+'.token', v); else localStorage.removeItem(LS_KEY+'.token'); }catch(e){}
+      setSync(v?'saving':'readonly'); settingsForm(); syncNow();
+      break;
+    }
     case 'export': doExport(); break;
     case 'import': doImport(); break;
     case 'import-statement': doImportStatement(); break;
@@ -1675,6 +1742,9 @@ function doImport(){
    ============================================================================ */
 load();
 render();
+syncNow();
+window.addEventListener('online', syncNow);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) syncNow(); });
 </script>
 </body>
 </html>
